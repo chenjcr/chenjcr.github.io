@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>试产检验</title>
+<style>
+:root{--bg:#0f1117;--card:#1a1d27;--border:#2a2d38;--text:#e8e9ed;--muted:#777;--ok:#2ecc71;--ng:#e74c3c;--blue:#4a90d9;--red:#d9485e;--r:8px;--t:.2s ease}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--text);-webkit-tap-highlight-color:transparent}
+.page{display:none;flex-direction:column;height:100%;overflow-y:auto}
+.page.on{display:flex}
+
+/* ── Step 1: 选择车型 ── */
+.step1{align-items:center;justify-content:center;padding:20px;gap:24px}
+.step1 h1{font-size:20px;font-weight:800;text-align:center}
+.step1 .sub{font-size:13px;color:var(--muted);text-align:center}
+.vlist{display:flex;flex-direction:column;gap:12px;width:100%;max-width:340px}
+.vcard{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;cursor:pointer;transition:var(--t);display:flex;align-items:center;gap:12px}
+.vcard:active{background:#222;transform:scale(.98)}
+.vcard .vicon{font-size:28px}
+.vcard .vinfo{flex:1}
+.vcard .vname{font-size:16px;font-weight:700}
+.vcard .vdesc{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* ── Step 2: 选择岗位 ── */
+.step2{padding:16px;gap:12px}
+.step2 .back{font-size:13px;color:var(--muted);cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:4px}
+.step2 h2{font-size:18px;font-weight:700}
+.step2 .vlabel{font-size:12px;color:var(--blue);background:rgba(74,144,217,.1);padding:2px 8px;border-radius:4px;align-self:flex-start}
+.slist{display:flex;flex-direction:column;gap:10px}
+.scard{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;cursor:pointer;transition:var(--t)}
+.scard:active{background:#222;transform:scale(.98)}
+.scard .sname{font-size:16px;font-weight:700}
+.scard .smeta{font-size:12px;color:var(--muted);margin-top:4px;display:flex;gap:12px}
+.scard .sskills{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.scard .sskill{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600}
+
+/* ── Step 3: 检验 ── */
+.step3{padding:0}
+.step3 .topbar{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border);background:var(--card);position:sticky;top:0;z-index:5}
+.step3 .topbar .back2{font-size:18px;color:var(--muted);cursor:pointer;padding:4px;flex-shrink:0}
+.step3 .topbar .info{flex:1;min-width:0}
+.step3 .topbar .tname{font-size:14px;font-weight:700}
+.step3 .topbar .tmeta{font-size:11px;color:var(--muted)}
+.step3 .vinbar{display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg);align-items:center}
+.step3 .vinbar input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px;color:var(--text);font-size:14px;outline:none}
+.step3 .vinbar input:focus{border-color:var(--blue)}
+.step3 .vinbar .vinsubmit{background:var(--blue);color:#fff;border:none;border-radius:6px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer}
+.step3 .items{flex:1;overflow-y:auto;padding:8px}
+.item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.03);border-radius:var(--r);transition:var(--t);margin-bottom:2px}
+.item:active{background:rgba(255,255,255,.03)}
+.item.ng{background:rgba(231,76,60,.06)}
+.item .it-info{flex:1;min-width:0}
+.item .it-name{font-size:13px;font-weight:500}
+.item .it-meta{font-size:10px;color:var(--muted);margin-top:2px}
+
+/* Big OK/NG buttons */
+.item .it-actions{display:flex;gap:6px;flex-shrink:0}
+.btn-ok{width:52px;height:36px;border-radius:8px;border:2px solid #2a2d38;background:transparent;color:var(--muted);font-size:13px;font-weight:800;cursor:pointer;transition:var(--t)}
+.btn-ok.on{background:rgba(46,204,113,.15);border-color:var(--ok);color:var(--ok)}
+.btn-ng{width:52px;height:36px;border-radius:8px;border:2px solid #2a2d38;background:transparent;color:var(--muted);font-size:13px;font-weight:800;cursor:pointer;transition:var(--t)}
+.btn-ng.on{background:rgba(231,76,60,.15);border-color:var(--ng);color:var(--ng)}
+
+/* NG detail area */
+.item .ng-detail{display:none;flex-wrap:wrap;gap:6px;padding:6px 0;align-items:center}
+.item.ng .ng-detail{display:flex}
+.ng-detail select{background:var(--card);border:1px solid var(--border);border-radius:5px;padding:6px 8px;color:var(--text);font-size:12px;outline:none;max-width:140px}
+.btn-photo{display:flex;align-items:center;gap:4px;padding:8px 14px;border-radius:8px;border:1px dashed var(--border);background:var(--card);color:var(--muted);font-size:12px;cursor:pointer;transition:var(--t)}
+.btn-photo:active{background:#222}
+.btn-photo.has{background:rgba(46,204,113,.1);border-color:var(--ok);color:var(--ok)}
+.photo-preview{display:flex;gap:4px;flex-wrap:wrap}
+.photo-preview img{width:48px;height:48px;border-radius:6px;object-fit:cover;border:1px solid var(--border)}
+
+/* Bottom bar */
+.bottombar{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border);background:var(--card);position:sticky;bottom:0}
+.bottombar .btn-all-ok{flex:1;padding:12px;border-radius:8px;border:2px solid var(--ok);background:rgba(46,204,113,.1);color:var(--ok);font-size:14px;font-weight:800;cursor:pointer}
+.bottombar .btn-all-ok:active{background:var(--ok);color:#fff}
+.bottombar .btn-submit{flex:1;padding:12px;border-radius:8px;border:none;background:var(--blue);color:#fff;font-size:14px;font-weight:800;cursor:pointer}
+.bottombar .btn-submit:active{opacity:.8}
+.bottombar .sum{display:flex;align-items:center;gap:8px;padding:0 4px;font-size:13px;font-weight:700}
+.bottombar .sum .ok-n{color:var(--ok)}.bottombar .sum .ng-n{color:var(--ng)}
+
+/* Photo viewer */
+.pv{position:fixed;inset:0;background:rgba(0,0,0,.95);display:flex;align-items:center;justify-content:center;z-index:100;cursor:pointer}
+.pv.off{display:none}
+.pv img{max-width:95vw;max-height:95vh;border-radius:8px}
+
+/* Toast */
+.toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);color:#fff;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:700;z-index:200;opacity:0;pointer-events:none;transition:opacity .3s}
+.toast.show{opacity:1}
+
+/* Step 4: 完成 */
+.step4{align-items:center;justify-content:center;padding:20px;gap:16px;text-align:center}
+.step4 .done-icon{font-size:64px}
+.step4 h2{font-size:20px;font-weight:800}
+.step4 .done-info{font-size:13px;color:var(--muted);line-height:1.6}
+.step4 .btn-row{display:flex;gap:10px;margin-top:8px}
+.step4 .btn-next{padding:12px 24px;border-radius:8px;background:var(--blue);color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer}
+.step4 .btn-export{padding:12px 24px;border-radius:8px;background:var(--card);color:var(--text);border:1px solid var(--border);font-size:14px;font-weight:700;cursor:pointer}
+</style>
+</head>
+<body>
+
+<!-- ── Step 1: 选择车型 ── -->
+<div class="page on" id="step1">
+  <h1>🏍 试产检验</h1>
+  <p class="sub">选择检验车型</p>
+  <div class="vlist" id="vehicleList"></div>
+</div>
+
+<!-- ── Step 2: 选择岗位 ── -->
+<div class="page" id="step2">
+  <div class="back" onclick="goStep(1)">← 返回选择车型</div>
+  <span class="vlabel" id="step2Vehicle"></span>
+  <h2>选择检验岗位</h2>
+  <div class="slist" id="stationList"></div>
+</div>
+
+<!-- ── Step 3: 检验 ── -->
+<div class="page" id="step3">
+  <div class="topbar">
+    <div class="back2" onclick="goStep(2)">←</div>
+    <div class="info">
+      <div class="tname" id="step3Station"></div>
+      <div class="tmeta" id="step3Meta"></div>
+    </div>
+  </div>
+  <div class="vinbar">
+    <input type="text" id="vinInput" placeholder="输入车架号..." onchange="onVinChange()">
+    <button class="vinsubmit" onclick="confirmVin()">确认</button>
+  </div>
+  <div class="items" id="itemsList"></div>
+  <div class="bottombar">
+    <div class="sum"><span class="ok-n" id="okCount">0</span>OK / <span class="ng-n" id="ngCount">0</span>NG</div>
+    <button class="btn-all-ok" onclick="allOK()">全部OK</button>
+    <button class="btn-submit" onclick="submitInspection()">提交</button>
+  </div>
+</div>
+
+<!-- ── Step 4: 完成 ── -->
+<div class="page" id="step4">
+  <div class="done-icon">✅</div>
+  <h2>提交成功</h2>
+  <div class="done-info" id="doneInfo"></div>
+  <div class="btn-row">
+    <button class="btn-next" onclick="goStep(2)">下一台车</button>
+    <button class="btn-export" onclick="exportAll()">📥 导出全部</button>
+  </div>
+</div>
+
+<!-- Photo viewer -->
+<div class="pv off" id="pv" onclick="this.classList.add('off')"><img id="pvImg" src=""></div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════ DATA ═══════════════
+const SKILLS=['紧固','布管布线','目视外观','间隙测量','PDA检测','绝缘测试'];
+const DEFECTS=['力矩不足','漏装/未装','卡扣不到位','线束干涉/磨损','外观划伤/缺陷','尺寸超差','功能异常','异物/脏污','松动/异响','标识不清','其他'];
+const SCOLS={紧固:{bg:'rgba(224,123,64,.15)',fg:'#e07b40'},布管布线:{bg:'rgba(74,144,217,.15)',fg:'#4a90d9'},目视外观:{bg:'rgba(76,175,125,.15)',fg:'#4caf7d'},间隙测量:{bg:'rgba(139,111,192,.15)',fg:'#8b6fc0'},PDA检测:{bg:'rgba(61,184,176,.15)',fg:'#3db8b0'},绝缘测试:{bg:'rgba(217,72,94,.15)',fg:'#d9485e'}};
+
+const IDATA=[
+  {id:'cat-1',name:'紧固规范',icon:'🔧',subs:[
+    {name:'关键力矩紧固',items:[{id:'i1-1',n:'前轮轴螺母紧固',loc:'前轮区域',t:['紧固']},{id:'i1-2',n:'前制动钳紧固',loc:'前轮区域',t:['紧固']},{id:'i1-3',n:'电机轴锁紧固',loc:'后轮区域',t:['紧固']},{id:'i1-4',n:'后制动钳紧固',loc:'后轮区域',t:['紧固']},{id:'i1-5',n:'后减震紧固',loc:'后轮区域',t:['紧固']},{id:'i1-6',n:'后平叉轴紧固',loc:'后轮区域',t:['紧固']},{id:'i1-7',n:'方向把紧固',loc:'方向把区域',t:['紧固']},{id:'i1-8',n:'前碟刹盘紧固',loc:'前轮区域',t:['紧固']},{id:'i1-9',n:'后碟刹盘紧固',loc:'后轮区域',t:['紧固']},{id:'i1-10',n:'控制器紧固',loc:'中控区域',t:['紧固']},{id:'i1-11',n:'铅酸计量版紧固',loc:'中控区域',t:['紧固']},{id:'i1-12',n:'前叉立管锁紧',loc:'方向把区域',t:['紧固']}]},
+    {name:'一般力矩紧固',items:[{id:'i1-13',n:'龙头锁紧固',loc:'方向把区域',t:['紧固']},{id:'i1-14',n:'ECU紧固',loc:'中控区域',t:['紧固']},{id:'i1-15',n:'转换器紧固',loc:'中控区域',t:['紧固']},{id:'i1-16',n:'油管线夹紧固',loc:'前轮区域',t:['紧固']},{id:'i1-17',n:'鞍座锁紧固',loc:'座桶区域',t:['紧固']},{id:'i1-18',n:'喇叭紧固',loc:'方向把区域',t:['紧固']},{id:'i1-19',n:'空开紧固',loc:'座桶区域',t:['紧固']},{id:'i1-20',n:'尾牌紧固',loc:'尾部区域',t:['紧固']}]},
+    {name:'鼓刹调节',items:[{id:'i1-30',n:'鼓刹调节（如有）',loc:'前/后轮区域',t:['紧固']}]}
+  ]},
+  {id:'cat-2',name:'布管布线检查',icon:'🔌',subs:[
+    {name:'走线路径检查',items:[{id:'i2-1',n:'前碟刹油管/前鼓刹拉索',loc:'前轮区域',t:['布管布线']},{id:'i2-2',n:'后碟刹油管/后鼓刹拉索',loc:'后轮区域',t:['布管布线']},{id:'i2-3',n:'前ABS油管',loc:'前轮区域',t:['布管布线']},{id:'i2-4',n:'后ABS油管',loc:'后轮区域',t:['布管布线']},{id:'i2-5',n:'主线束',loc:'全车',t:['布管布线']},{id:'i2-6',n:'电机线',loc:'后轮区域',t:['布管布线']}]},
+    {name:'主线束分支点检',items:[{id:'i2-7',n:'主线束与仪表',loc:'方向把区域',t:['布管布线']},{id:'i2-8',n:'主线束与断电开关',loc:'方向把区域',t:['布管布线']},{id:'i2-9',n:'主线束与油门转把',loc:'方向把区域',t:['布管布线']},{id:'i2-10',n:'主线束与ECU',loc:'中控区域',t:['布管布线']},{id:'i2-11',n:'主线束与转换器',loc:'中控区域',t:['布管布线']},{id:'i2-12',n:'主线束与控制器',loc:'座桶区域',t:['布管布线']}]},
+    {name:'端子插接检查',items:[{id:'i2-13',n:'仪表端子',loc:'方向把区域',t:['布管布线']},{id:'i2-14',n:'组合开关端子',loc:'方向把区域',t:['布管布线']},{id:'i2-15',n:'ECU端子',loc:'中控区域',t:['布管布线']},{id:'i2-16',n:'VCU端子',loc:'中控区域',t:['布管布线']},{id:'i2-17',n:'前大灯端子',loc:'前部区域',t:['布管布线']},{id:'i2-18',n:'尾灯端子',loc:'尾部区域',t:['布管布线']}]}
+  ]},
+  {id:'cat-3',name:'塑件卡扣卡接量检查',icon:'🧩',subs:[{name:'卡扣接合检查',items:[{id:'i3-1',n:'方向把前壳与后壳',loc:'方向把区域',t:['目视外观']},{id:'i3-2',n:'前面板与前挡风',loc:'前部区域',t:['目视外观']},{id:'i3-3',n:'前边条与前挡风',loc:'前部区域',t:['目视外观']},{id:'i3-4',n:'中边条与脚踏板支架',loc:'中部区域',t:['目视外观']},{id:'i3-5',n:'中边条与底护板',loc:'中部区域',t:['目视外观']},{id:'i3-6',n:'座桶护板与座桶前围板',loc:'座桶区域',t:['目视外观']},{id:'i3-7',n:'座桶护板与尾灯装饰件',loc:'尾部区域',t:['目视外观']}]}]},
+  {id:'cat-4',name:'紧固后塑件螺柱开裂检查',icon:'🔍',subs:[{name:'螺柱开裂检查',items:[{id:'i4-1',n:'方向把后壳',loc:'方向把区域',t:['目视外观']},{id:'i4-2',n:'前挡风件',loc:'前部区域',t:['目视外观']},{id:'i4-3',n:'前边条',loc:'前部区域',t:['目视外观']},{id:'i4-4',n:'中边条',loc:'中部区域',t:['目视外观']},{id:'i4-5',n:'前挡泥板',loc:'前轮区域',t:['目视外观']},{id:'i4-6',n:'后挡泥板',loc:'后轮区域',t:['目视外观']},{id:'i4-7',n:'座桶前围板',loc:'座桶区域',t:['目视外观']}]}]},
+  {id:'cat-5',name:'紧固后部件开裂变形检查',icon:'⚠️',subs:[{name:'部件变形检查',items:[{id:'i5-1',n:'方向把紧固点',loc:'方向把区域',t:['目视外观']},{id:'i5-2',n:'后平叉紧固点',loc:'后轮区域',t:['目视外观']},{id:'i5-3',n:'电机紧固点',loc:'后轮区域',t:['目视外观']},{id:'i5-4',n:'中撑紧固点',loc:'中部区域',t:['目视外观']}]}]},
+  {id:'cat-6',name:'间隙报告',icon:'📏',subs:[{name:'外观间隙测量',items:[{id:'i6-1',n:'前轮-前挡泥板间隙',loc:'前轮区域',t:['间隙测量']},{id:'i6-2',n:'前减震间隙',loc:'前轮区域',t:['间隙测量']},{id:'i6-3',n:'碟刹泵间隙',loc:'前轮区域',t:['间隙测量']},{id:'i6-4',n:'后轮-后挡泥板间隙',loc:'后轮区域',t:['间隙测量']},{id:'i6-5',n:'后平叉间隙',loc:'后轮区域',t:['间隙测量']},{id:'i6-6',n:'座桶护板间隙',loc:'座桶区域',t:['间隙测量']},{id:'i6-7',n:'方向把-前挡风件间隙',loc:'方向把区域',t:['间隙测量']},{id:'i6-8',n:'碟刹盘-后减震螺栓间隙',loc:'后轮区域',t:['间隙测量']}]}]},
+  {id:'cat-7',name:'运动件与不运动件接触检查',icon:'⚙️',subs:[{name:'运动间隙检查',items:[{id:'i7-1',n:'前轮-前挡泥板运动间隙',loc:'前轮区域',t:['间隙测量']},{id:'i7-2',n:'前减震运动间隙',loc:'前轮区域',t:['间隙测量']},{id:'i7-3',n:'制动油管运动间隙',loc:'前轮区域',t:['间隙测量']},{id:'i7-4',n:'后轮-后挡泥板运动间隙',loc:'后轮区域',t:['间隙测量']},{id:'i7-5',n:'后平叉运动间隙',loc:'后轮区域',t:['间隙测量']},{id:'i7-6',n:'座垫铰链运动间隙',loc:'座桶区域',t:['间隙测量']}]}]},
+  {id:'cat-8',name:'PDA检测防呆检查',icon:'📱',subs:[{name:'PDA功能检查',items:[{id:'i8-1',n:'前后胎压温度阈值',loc:'全车',t:['PDA检测']},{id:'i8-2',n:'ECU姿态校准',loc:'中控区域',t:['PDA检测']},{id:'i8-3',n:'摄像校准检测',loc:'前部区域',t:['PDA检测']},{id:'i8-4',n:'仪表盘固件检查',loc:'方向把区域',t:['PDA检测']},{id:'i8-5',n:'ECU中控固件检查',loc:'中控区域',t:['PDA检测']},{id:'i8-6',n:'边撑放下检测',loc:'中部区域',t:['PDA检测']},{id:'i8-7',n:'试骑距离检测',loc:'全车',t:['PDA检测']}]}]},
+  {id:'cat-9',name:'绝缘',icon:'⚡',subs:[{name:'绝缘测试',items:[{id:'i9-1',n:'整车绝缘测试',loc:'全车',t:['绝缘测试']}]}]}
+];
+
+let allItems=[];
+IDATA.forEach(c=>{c.subs.forEach(s=>{s.items.forEach(it=>{allItems.push({...it,cid:c.id,cn:c.name,sn:s.name});});});});
+function gItem(id){return allItems.find(i=>i.id===id);}
+
+// ═══════════════ STATE ═══════════════
+const STORAGE_KEY='mobile_inspection_';
+const API_BASE=''; // same origin = shared server
+let stations=[]; // loaded from PC kanban config or localStorage
+let curVehicle='commuter';
+let curStationId=null;
+let curVin='';
+let curResults={}; // {itemId: {r:'ok'|'ng'|null, dt:'', ps:[]}}
+let allRecords=[]; // completed inspections
+
+// ═══════════════ LOAD CONFIG ═══════════════
+function loadConfig(){
+  // Try to load stations from the PC kanban's localStorage
+  try{
+    var d=JSON.parse(localStorage.getItem('inspection_kanban_data'));
+    if(d&&d.stations){stations=d.stations;return;}
+  }catch(e){}
+  // Fallback defaults
+  stations=[
+    {id:'st-1',name:'岗位A：前轮+方向把',skills:['紧固','布管布线'],cs:'s1',items:['i1-1','i1-2','i1-7','i1-8','i1-12','i1-16','i1-18','i2-1','i2-3','i2-7','i2-8','i2-9']},
+    {id:'st-2',name:'岗位B：外观检验',skills:['目视外观','间隙测量'],cs:'s2',items:['i3-1','i3-2','i3-3','i4-1','i4-2','i4-3','i5-1','i6-7']},
+    {id:'st-3',name:'岗位C：中控+后轮',skills:['紧固','布管布线','间隙测量'],cs:'s3',items:['i1-3','i1-4','i1-5','i1-6','i1-10','i1-14','i1-15','i2-2','i2-4','i2-10','i2-11','i2-12','i6-4','i6-5']}
+  ];
+}
+loadConfig();
+
+// Load records
+try{
+  var rd=JSON.parse(localStorage.getItem(STORAGE_KEY+'records'));
+  if(rd)allRecords=rd;
+}catch(e){}
+
+function saveRecords(){
+  try{localStorage.setItem(STORAGE_KEY+'records',JSON.stringify(allRecords));}catch(e){}
+}
+
+// ═══════════════ PAGE NAVIGATION ═══════════════
+function goStep(n){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.getElementById('step'+n).classList.add('on');
+  if(n===1)renderVehicles();
+  else if(n===2)renderStations();
+  else if(n===3)renderItems();
+}
+
+function renderVehicles(){
+  document.getElementById('vehicleList').innerHTML=[
+    {id:'commuter',name:'通勤款',desc:'小龟王系列',icon:'🛵'},
+    {id:'sport',name:'运动款',desc:'N系列',icon:'🏍'}
+  ].map(v=>'<div class="vcard" onclick="selectVehicle(\''+v.id+'\',\''+v.name+'\')"><div class="vicon">'+v.icon+'</div><div class="vinfo"><div class="vname">'+v.name+'</div><div class="vdesc">'+v.desc+'</div></div></div>').join('');
+}
+
+function selectVehicle(id,name){
+  curVehicle=id;
+  document.getElementById('step2Vehicle').textContent='车型：'+name;
+  goStep(2);
+}
+
+function renderStations(){
+  document.getElementById('stationList').innerHTML=stations.filter(s=>s.items.length>0).map(st=>{
+    var si=st.items.map(id=>gItem(id)).filter(Boolean);
+    var sh=st.skills.map(s=>{var co=SCOLS[s]||{bg:'rgba(255,255,255,.1)',fg:'#ccc'};return'<span class="sskill" style="background:'+co.bg+';color:'+co.fg+'">'+s+'</span>';}).join('');
+    return'<div class="scard" onclick="selectStation(\''+st.id+'\',\''+st.name+'\',\''+si.length+'\')"><div class="sname">'+st.name+'</div><div class="smeta"><span>📦 '+si.length+'项</span></div><div class="sskills">'+sh+'</div></div>';
+  }).join('');
+}
+
+function selectStation(id,name,count){
+  curStationId=id;
+  curVin='';
+  curResults={};
+  var st=stations.find(s=>s.id===id);
+  if(st){
+    st.items.forEach(iid=>{curResults[iid]={r:null,dt:'',ps:[]};});
+  }
+  document.getElementById('step3Station').textContent=name;
+  document.getElementById('step3Meta').textContent=count+'项检验';
+  document.getElementById('vinInput').value='';
+  goStep(3);
+}
+
+// ═══════════════ INSPECTION ═══════════════
+function renderItems(){
+  var st=stations.find(s=>s.id===curStationId);
+  if(!st)return;
+  var items=st.items.map(id=>gItem(id)).filter(Boolean);
+  var c=document.getElementById('itemsList');
+  c.innerHTML=items.map(it=>{
+    var r=curResults[it.id]||{r:null,dt:'',ps:[]};
+    var isOK=r.r==='ok',isNG=r.r==='ng',hp=r.ps&&r.ps.length>0;
+    return'<div class="item'+(isNG?' ng':'')+'" id="it-'+it.id+'"><div class="it-info"><div class="it-name">'+it.n+'</div><div class="it-meta">'+it.cn+' · 📍'+it.loc+'</div>'+(isNG?'<div class="ng-detail"><select onchange="uDt(\''+it.id+'\',this.value)"><option value="">缺陷类型</option>'+DEFECTS.map(d=>'<option value="'+d+'"'+(r.dt===d?' selected':'')+'>'+d+'</option>').join('')+'</select><button class="btn-photo'+(hp?' has':'')+'" onclick="takePhoto(\''+it.id+'\')">📷'+(hp?' ('+r.ps.length+')':'拍照')+'</button><div class="photo-preview">'+(r.ps||[]).map((p,i)=>'<img src="'+p+'" onclick="viewPhoto(\''+p+'\')">').join('')+'</div></div>':'')+'</div><div class="it-actions"><button class="btn-ok'+(isOK?' on':'')+'" onclick="markOK(\''+it.id+'\')">OK</button><button class="btn-ng'+(isNG?' on':'')+'" onclick="markNG(\''+it.id+'\')">NG</button></div></div>';
+  }).join('');
+  updateCounts();
+}
+
+function markOK(id){
+  curResults[id]={r:'ok',dt:'',ps:curResults[id]?curResults[id].ps||[]:[]};
+  renderItems();
+}
+function markNG(id){
+  curResults[id]={r:'ng',dt:curResults[id]?curResults[id].dt||DEFECTS[0]:DEFECTS[0],ps:curResults[id]?curResults[id].ps||[]:[]};
+  renderItems();
+}
+function uDt(id,v){if(curResults[id])curResults[id].dt=v;}
+function allOK(){
+  var st=stations.find(s=>s.id===curStationId);
+  if(!st)return;
+  st.items.forEach(iid=>{
+    curResults[iid]={r:'ok',dt:'',ps:curResults[iid]?curResults[iid].ps||[]:[]};
+  });
+  renderItems();
+  showToast('✅ 全部OK');
+}
+function updateCounts(){
+  var ok=0,ng=0;
+  Object.values(curResults).forEach(r=>{if(r.r==='ok')ok++;else if(r.r==='ng')ng++;});
+  document.getElementById('okCount').textContent=ok;
+  document.getElementById('ngCount').textContent=ng;
+}
+
+// ═══════════════ PHOTO ═══════════════
+function takePhoto(itemId){
+  var inp=document.createElement('input');
+  inp.type='file';
+  inp.accept='image/*';
+  inp.capture='environment';
+  inp.onchange=function(e){
+    var f=e.target.files[0];if(!f)return;
+    // Compress image
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      var img=new Image();
+      img.onload=function(){
+        var canvas=document.createElement('canvas');
+        var maxW=800,maxH=800;
+        var w=img.width,h=img.height;
+        if(w>maxW||h>maxH){var ratio=Math.min(maxW/w,maxH/h);w=Math.round(w*ratio);h=Math.round(h*ratio);}
+        canvas.width=w;canvas.height=h;
+        var ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        var compressed=canvas.toDataURL('image/jpeg',0.7);
+        if(!curResults[itemId])curResults[itemId]={r:null,dt:'',ps:[]};
+        curResults[itemId].ps.push(compressed);
+        if(!curResults[itemId].r||curResults[itemId].r==='ok'){curResults[itemId].r='ng';if(!curResults[itemId].dt)curResults[itemId].dt=DEFECTS[0];}
+        renderItems();
+        showToast('📷 已拍照');
+      };
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(f);
+  };
+  inp.click();
+}
+function viewPhoto(src){document.getElementById('pv').classList.remove('off');document.getElementById('pvImg').src=src;}
+
+// ═══════════════ SUBMIT ═══════════════
+function onVinChange(){curVin=document.getElementById('vinInput').value.trim();}
+function confirmVin(){curVin=document.getElementById('vinInput').value.trim();showToast('车架号：'+curVin);}
+
+function submitInspection(){
+  if(!curVin){showToast('⚠️ 请输入车架号');return;}
+  var st=stations.find(s=>s.id===curStationId);
+  var unchecked=st?st.items.filter(iid=>!curResults[iid]||!curResults[iid].r).length:0;
+  if(unchecked>0){showToast('⚠️ 还有'+unchecked+'项未判定');return;}
+
+  var rec={vin:curVin,stationId:curStationId,stationName:st?st.name:'',vehicle:curVehicle,results:JSON.parse(JSON.stringify(curResults)),ts:new Date().toISOString()};
+  allRecords.push(rec);
+  saveRecords();
+
+  // POST to shared server
+  fetch(API_BASE+'/api/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(rec)})
+    .then(function(r){return r.json();})
+    .then(function(d){console.log('Server sync:',d);})
+    .catch(function(e){console.log('Server sync failed (offline?):',e);});
+
+  var ok=0,ng=0;
+  Object.values(curResults).forEach(r=>{if(r.r==='ok')ok++;else if(r.r==='ng')ng++;});
+
+  document.getElementById('doneInfo').innerHTML='车架号：<b>'+curVin+'</b><br>岗位：<b>'+(st?st.name:'')+'</b><br>OK：<b style="color:#2ecc71">'+ok+'</b> 项<br>NG：<b style="color:#e74c3c">'+ng+'</b> 项<br>已保存至本地，共 <b>'+allRecords.length+'</b> 台记录'+(rec.vin?'<br><br><span style="color:#3db8b0">📡 已同步到服务器</span>':'');
+  goStep(4);
+}
+
+function exportAll(){
+  var d={records:allRecords,stations:stations,exportTime:new Date().toISOString()};
+  var blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='检验数据_'+new Date().toISOString().slice(0,10)+'.json';a.click();
+  showToast('📥 已导出');
+}
+
+function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},1800);}
+
+// Init
+renderVehicles();
+</script>
+</body>
+</html>
