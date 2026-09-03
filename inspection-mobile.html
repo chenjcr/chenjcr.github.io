@@ -514,7 +514,15 @@ function restoreHistory(){if(historyStack.length>0){var img=new Image();img.onlo
 function undoEdit(){if(historyStack.length>1){historyStack.pop();restoreHistory();}else if(historyStack.length===1){restoreHistory();}}
 function clearEdit(){editCtx.drawImage(origImg,0,0,editCanvas.width,editCanvas.height);historyStack=[];saveHistory();}
 function setTool(t){curTool=t;['draw','circle','arrow','text'].forEach(function(id){var el=document.getElementById('tool-'+id);if(el)el.style.borderColor=id===t?'#4a90d9':'#444';el.style.background=id===t?'#1a3a5a':'#222';});}
-function setColor(c){curColor=c;['red','yellow','white','green'].forEach(function(id){var el=document.getElementById('color-'+id);if(el)el.style.borderColor='2px solid '+(el.style.background.includes(c)?'#fff':'#444');});document.querySelectorAll('[id^="color-"]').forEach(function(el){el.style.border='2px solid '+(el.id==='color-'+{red:'red',yellow:'yellow',white:'white',green:'green'}[Object.keys({red:'#e74c3c',yellow:'#f1c40f',white:'#fff',green:'#2ecc71'}).find(function(k){return{id:'red',yellow:'#f1c40f',white:'#fff',green:'#2ecc71'}[k]===c})]?'#fff':'#444');});}
+function setColor(c){
+  curColor=c;
+  var map={'#e74c3c':'red','#f1c40f':'yellow','#ffffff':'white','#2ecc71':'green'};
+  var colorMap={'red':'#e74c3c','yellow':'#f1c40f','white':'#ffffff','green':'#2ecc71'};
+  Object.keys(colorMap).forEach(function(name){
+    var el=document.getElementById('color-'+name);
+    if(el)el.style.border='2px solid '+(colorMap[name]===c?'#fff':'#444');
+  });
+}
 function cancelEditPhoto(){document.getElementById('photoEditor').style.display='none';}
 function saveEditPhoto(){
   var dataUrl=editCanvas.toDataURL('image/jpeg',0.7);
