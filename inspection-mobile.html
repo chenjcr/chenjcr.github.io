@@ -154,6 +154,34 @@ body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--text)
 <!-- Photo viewer -->
 <div class="pv off" id="pv" onclick="this.classList.add('off')"><img id="pvImg" src=""></div>
 
+<!-- Photo editor -->
+<div id="photoEditor" style="position:fixed;inset:0;background:#000;z-index:300;display:none;flex-direction:column">
+  <div style="padding:10px;display:flex;align-items:center;justify-content:space-between;background:#111">
+    <span style="font-size:14px;font-weight:700;color:#fff">📷 照片标注</span>
+    <div style="display:flex;gap:6px">
+      <button onclick="cancelEditPhoto()" style="padding:6px 12px;border:none;border-radius:6px;background:#333;color:#ccc;font-size:12px;cursor:pointer">取消</button>
+      <button onclick="saveEditPhoto()" style="padding:6px 12px;border:none;border-radius:6px;background:#4a90d9;color:#fff;font-size:12px;font-weight:700;cursor:pointer">保存</button>
+    </div>
+  </div>
+  <div style="flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center" id="canvasContainer">
+    <canvas id="editCanvas" style="max-width:100%;max-height:100%;touch-action:none"></canvas>
+  </div>
+  <div style="padding:10px;background:#111;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+    <button onclick="setTool('draw')" id="tool-draw" style="padding:8px 14px;border:1px solid #444;border-radius:8px;background:#222;color:#fff;font-size:12px;cursor:pointer">✏️ 画笔</button>
+    <button onclick="setTool('circle')" id="tool-circle" style="padding:8px 14px;border:1px solid #444;border-radius:8px;background:#222;color:#fff;font-size:12px;cursor:pointer">⭕ 圆圈</button>
+    <button onclick="setTool('arrow')" id="tool-arrow" style="padding:8px 14px;border:1px solid #444;border-radius:8px;background:#222;color:#fff;font-size:12px;cursor:pointer">➤ 箭头</button>
+    <button onclick="setTool('text')" id="tool-text" style="padding:8px 14px;border:1px solid #444;border-radius:8px;background:#222;color:#fff;font-size:12px;cursor:pointer">📝 文字</button>
+    <button onclick="undoEdit()" style="padding:8px 14px;border:1px solid #444;border-radius:8px;background:#222;color:#fff;font-size:12px;cursor:pointer">↶ 撤销</button>
+    <button onclick="clearEdit()" style="padding:8px 14px;border:1px solid #444;border-radius:8px;background:#222;color:#fff;font-size:12px;cursor:pointer">🗑 清除</button>
+  </div>
+  <div style="padding:6px 10px;background:#111;display:flex;gap:8px;justify-content:center">
+    <button onclick="setColor('#e74c3c')" id="color-red" style="width:28px;height:28px;border-radius:50%;border:2px solid #fff;background:#e74c3c;cursor:pointer"></button>
+    <button onclick="setColor('#f1c40f')" id="color-yellow" style="width:28px;height:28px;border-radius:50%;border:2px solid #444;background:#f1c40f;cursor:pointer"></button>
+    <button onclick="setColor('#fff')" id="color-white" style="width:28px;height:28px;border-radius:50%;border:2px solid #444;background:#fff;cursor:pointer"></button>
+    <button onclick="setColor('#2ecc71')" id="color-green" style="width:28px;height:28px;border-radius:50%;border:2px solid #444;background:#2ecc71;cursor:pointer"></button>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -358,37 +386,143 @@ function updateCounts(){
 }
 
 // ═══════════════ PHOTO ═══════════════
+// ═══════════ PHOTO + EDITOR ═══════════
+var editCtx=null,editCanvas=null,origImg=null,curTool='draw',curColor='#e74c3c',drawStart=null,historyStack=[],editItemId=null;
+
 function takePhoto(itemId){
+  editItemId=itemId;
   var inp=document.createElement('input');
-  inp.type='file';
-  inp.accept='image/*';
-  inp.capture='environment';
+  inp.type='file';inp.accept='image/*';inp.capture='environment';
   inp.onchange=function(e){
     var f=e.target.files[0];if(!f)return;
-    // Compress image
     var reader=new FileReader();
     reader.onload=function(ev){
-      var img=new Image();
-      img.onload=function(){
-        var canvas=document.createElement('canvas');
-        var maxW=800,maxH=800;
-        var w=img.width,h=img.height;
-        if(w>maxW||h>maxH){var ratio=Math.min(maxW/w,maxH/h);w=Math.round(w*ratio);h=Math.round(h*ratio);}
-        canvas.width=w;canvas.height=h;
-        var ctx=canvas.getContext('2d');
-        ctx.drawImage(img,0,0,w,h);
-        var compressed=canvas.toDataURL('image/jpeg',0.7);
-        if(!curResults[itemId])curResults[itemId]={r:null,dt:'',ps:[]};
-        curResults[itemId].ps.push(compressed);
-        if(!curResults[itemId].r||curResults[itemId].r==='ok'){curResults[itemId].r='ng';if(!curResults[itemId].dt)curResults[itemId].dt=DEFECTS[0];}
-        renderItems();
-        showToast('📷 已拍照');
+      origImg=new Image();
+      origImg.onload=function(){
+        openPhotoEditor();
       };
-      img.src=ev.target.result;
+      origImg.src=ev.target.result;
     };
     reader.readAsDataURL(f);
   };
   inp.click();
+}
+
+function openPhotoEditor(){
+  var editor=document.getElementById('photoEditor');
+  editor.style.display='flex';
+  editCanvas=document.getElementById('editCanvas');
+  editCtx=editCanvas.getContext('2d');
+  // Size canvas to image (max 1200px)
+  var maxW=1200,maxH=1600;
+  var w=origImg.width,h=origImg.height;
+  if(w>maxW){h=h*(maxW/w);w=maxW;}
+  if(h>maxH){w=w*(maxH/h);h=maxH;}
+  editCanvas.width=w;editCanvas.height=h;
+  editCtx.drawImage(origImg,0,0,w,h);
+  historyStack=[];
+  saveHistory();
+  // Set default tool
+  setTool('draw');
+  setColor('#e74c3c');
+  // Touch events
+  editCanvas.ontouchstart=onCanvasStart;
+  editCanvas.ontouchmove=onCanvasMove;
+  editCanvas.ontouchend=onCanvasEnd;
+  editCanvas.onmousedown=onCanvasStart;
+  editCanvas.onmousemove=onCanvasMove;
+  editCanvas.onmouseup=onCanvasEnd;
+  editCanvas.onmouseleave=onCanvasEnd;
+}
+
+function getCanvasPos(e){
+  var rect=editCanvas.getBoundingClientRect();
+  var scaleX=editCanvas.width/rect.width;
+  var scaleY=editCanvas.height/rect.height;
+  var x,y;
+  if(e.touches&&e.touches[0]){x=e.touches[0].clientX-rect.left;y=e.touches[0].clientY-rect.top;}
+  else if(e.changedTouches&&e.changedTouches[0]){x=e.changedTouches[0].clientX-rect.left;y=e.changedTouches[0].clientY-rect.top;}
+  else{x=e.clientX-rect.left;y=e.clientY-rect.top;}
+  return{x:x*scaleX,y:y*scaleY};
+}
+
+function onCanvasStart(e){
+  e.preventDefault();
+  var p=getCanvasPos(e);drawStart=p;
+  if(curTool==='text'){
+    var text=prompt('输入标注文字：');
+    if(text){
+      editCtx.fillStyle=curColor;
+      editCtx.font='bold '+(editCanvas.width>600?24:16)+'px sans-serif';
+      editCtx.fillText(text,p.x,p.y);
+      saveHistory();
+    }
+    drawStart=null;
+  }else if(curTool==='draw'){
+    editCtx.beginPath();editCtx.moveTo(p.x,p.y);
+  }
+}
+
+function onCanvasMove(e){
+  if(!drawStart)return;
+  e.preventDefault();
+  var p=getCanvasPos(e);
+  if(curTool==='draw'){
+    editCtx.strokeStyle=curColor;
+    editCtx.lineWidth=editCanvas.width>600?4:3;
+    editCtx.lineCap='round';
+    editCtx.lineTo(p.x,p.y);editCtx.stroke();
+  }else if(curTool==='circle'||curTool==='arrow'){
+    // Preview: restore from history then draw shape
+    restoreHistory();
+    editCtx.strokeStyle=curColor;
+    editCtx.lineWidth=editCanvas.width>600?4:3;
+    if(curTool==='circle'){
+      var dx=p.x-drawStart.x,dy=p.y-drawStart.y;
+      var r=Math.sqrt(dx*dx+dy*dy);
+      editCtx.beginPath();editCtx.arc(drawStart.x,drawStart.y,r,0,2*Math.PI);editCtx.stroke();
+    }else if(curTool==='arrow'){
+      drawArrow(drawStart.x,drawStart.y,p.x,p.y);
+    }
+  }
+}
+
+function onCanvasEnd(e){
+  if(!drawStart)return;
+  e.preventDefault();
+  var p=getCanvasPos(e);
+  if(curTool==='draw'){
+    editCtx.lineTo(p.x,p.y);editCtx.stroke();editCtx.beginPath();
+  }
+  saveHistory();
+  drawStart=null;
+}
+
+function drawArrow(x1,y1,x2,y2){
+  var headLen=editCanvas.width>600?20:12;
+  var angle=Math.atan2(y2-y1,x2-x1);
+  editCtx.beginPath();editCtx.moveTo(x1,y1);editCtx.lineTo(x2,y2);editCtx.stroke();
+  editCtx.beginPath();editCtx.moveTo(x2,y2);
+  editCtx.lineTo(x2-headLen*Math.cos(angle-Math.PI/6),y2-headLen*Math.sin(angle-Math.PI/6));
+  editCtx.moveTo(x2,y2);
+  editCtx.lineTo(x2-headLen*Math.cos(angle+Math.PI/6),y2-headLen*Math.sin(angle+Math.PI/6));
+  editCtx.stroke();
+}
+
+function saveHistory(){try{historyStack.push(editCanvas.toDataURL('image/jpeg',0.8));if(historyStack.length>20)historyStack.shift();}catch(e){}}
+function restoreHistory(){if(historyStack.length>0){var img=new Image();img.onload=function(){editCtx.clearRect(0,0,editCanvas.width,editCanvas.height);editCtx.drawImage(img,0,0);};img.src=historyStack[historyStack.length-1];}}
+function undoEdit(){if(historyStack.length>1){historyStack.pop();restoreHistory();}else if(historyStack.length===1){restoreHistory();}}
+function clearEdit(){editCtx.drawImage(origImg,0,0,editCanvas.width,editCanvas.height);historyStack=[];saveHistory();}
+function setTool(t){curTool=t;['draw','circle','arrow','text'].forEach(function(id){var el=document.getElementById('tool-'+id);if(el)el.style.borderColor=id===t?'#4a90d9':'#444';el.style.background=id===t?'#1a3a5a':'#222';});}
+function setColor(c){curColor=c;['red','yellow','white','green'].forEach(function(id){var el=document.getElementById('color-'+id);if(el)el.style.borderColor='2px solid '+(el.style.background.includes(c)?'#fff':'#444');});document.querySelectorAll('[id^="color-"]').forEach(function(el){el.style.border='2px solid '+(el.id==='color-'+{red:'red',yellow:'yellow',white:'white',green:'green'}[Object.keys({red:'#e74c3c',yellow:'#f1c40f',white:'#fff',green:'#2ecc71'}).find(function(k){return{id:'red',yellow:'#f1c40f',white:'#fff',green:'#2ecc71'}[k]===c})]?'#fff':'#444');});}
+function cancelEditPhoto(){document.getElementById('photoEditor').style.display='none';}
+function saveEditPhoto(){
+  var dataUrl=editCanvas.toDataURL('image/jpeg',0.7);
+  if(!curResults[editItemId])curResults[editItemId]={r:null,dt:'',ps:[]};
+  curResults[editItemId].ps.push(dataUrl);
+  if(!curResults[editItemId].r||curResults[editItemId].r==='ok'){curResults[editItemId].r='ng';if(!curResults[editItemId].dt)curResults[editItemId].dt=DEFECTS[0];}
+  document.getElementById('photoEditor').style.display='none';
+  renderItems();showToast('📷 已保存标注照片');
 }
 function viewPhoto(src){document.getElementById('pv').classList.remove('off');document.getElementById('pvImg').src=src;}
 
