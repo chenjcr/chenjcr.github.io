@@ -440,10 +440,9 @@ function gItem(id){return allItems.find(i=>i.id===id);}
 const SSTORAGE_KEY='inspection_kanban_data';
 const SHEET_URL='https://doc.weixin.qq.com/smartsheet/s3_AM8AdHgnAPUCNaAbD5WPEQX6jPi4x_a?scode=AHwAVAcbAAg3qjbW4qAM8AdHgnAPU';
 const SHEET_DOCID='dcrwzGRr5PkLKW9bKyBgqOPmvj3UOvOPnzpclPbJZ1O3r262q-cLZRNX5ipL9kJSOhNhi606R1PcEh8EO6mVwvNg';
-// API URL: read from query param ?api=xxx, or use current origin
+// GitHub raw URL for cloud data
+const GH_RAW='https://raw.githubusercontent.com/chenjcr/chenjcr.github.io/main/data.json';
 var API='';
-try{var q=new URLSearchParams(window.location.search);if(q.get('api'))API=q.get('api');}catch(e){}
-console.log('API:',API||'(same origin)');
 let stations=[
   {id:'st-1',name:'岗位A：前轮+方向把',skills:['紧固','布管布线'],cs:'s1',items:['i1-1','i1-2','i1-7','i1-8','i1-12','i1-16','i1-18','i2-1','i2-3','i2-7','i2-8','i2-9']},
   {id:'st-2',name:'岗位B：外观检验',skills:['目视外观','间隙测量'],cs:'s2',items:['i3-1','i3-2','i3-3','i4-1','i4-2','i4-3','i5-1','i6-7']},
@@ -561,7 +560,9 @@ function importAllData(){
 // ═══════════ SERVER SYNC ═══════════
 function loadFromServer(){
   document.getElementById('syncStatus').textContent='⏳ 加载中...';
-  fetch(API+'/api/records').then(function(r){return r.json();}).then(function(d){
+  // Add cache-busting parameter to get fresh data
+  var url=GH_RAW+'?t='+Date.now();
+  fetch(url).then(function(r){return r.json();}).then(function(d){
     if(d.records&&d.records.length>0){
       var newRecs=d.records.map(function(rec){
         var sr={};sr[rec.stationId]={};
@@ -573,13 +574,12 @@ function loadFromServer(){
       allRecs=newRecs;
       if(d.stations&&d.stations.length>0)stations=d.stations;
       saveToStorage();
-      document.getElementById('syncStatus').textContent='🔄 '+allRecs.length+'条 | 服务器';
+      document.getElementById('syncStatus').textContent='🔄 '+allRecs.length+'条 | GitHub';
       renderAnalysis();
-      showToast('📡 加载了 '+allRecs.length+' 条');
-      // Also update tab1 if visible
+      showToast('📡 从GitHub加载了 '+allRecs.length+' 条');
       if(document.getElementById('page1').classList.contains('on'))refreshAll();
-    }else{showToast('ℹ️ 服务器暂无数据');document.getElementById('syncStatus').textContent='💾 本地存储';}
-  }).catch(function(e){showToast('⚠️ 无法连接服务器');document.getElementById('syncStatus').textContent='⚠️ 连接失败';});
+    }else{showToast('ℹ️ 暂无数据');document.getElementById('syncStatus').textContent='💾 本地存储';}
+  }).catch(function(e){showToast('⚠️ 加载失败');document.getElementById('syncStatus').textContent='⚠️ 连接失败';});
 }
 function autoRefresh(){loadFromServer();setTimeout(autoRefresh,15000);}
 
