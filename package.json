@@ -1,1 +1,1 @@
-{"name": "inspection-kanban", "version": "1.0.0", "scripts": {"start": "node server.js"}, "dependencies": {}}
+{"name": "inspection-kanban", "version": "1.0.0", "scripts": {"start": "node server.js"}, "dependencies": {"@vercel/kv": "^1.0.1"}}
