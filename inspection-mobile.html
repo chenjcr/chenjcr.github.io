@@ -188,7 +188,10 @@ function gItem(id){return allItems.find(i=>i.id===id);}
 
 // ═══════════════ STATE ═══════════════
 const STORAGE_KEY='mobile_inspection_';
-const API_BASE=''; // same origin = shared server
+// API URL: read from query param ?api=xxx, or use current origin
+var API_BASE='';
+try{var q=new URLSearchParams(window.location.search);if(q.get('api'))API_BASE=q.get('api');}catch(e){}
+console.log('API_BASE:',API_BASE||'(same origin)');
 let stations=[]; // loaded from PC kanban config or localStorage
 let curVehicle='commuter';
 let curStationId=null;
