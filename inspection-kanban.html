@@ -845,7 +845,7 @@ function exportRecords(){
   html+='.photo-modal.show{display:flex}';
   html+='</style></head><body>';
   html+='<div class="photo-modal" id="pm" onclick="this.classList.remove(\'show\')"><img id="pmImg" src=""></div>';
-  html+='<script>function vp(s){document.getElementById("pmImg").src=s;document.getElementById("pm").classList.add("show");}</script>';
+  html+='<script>function vp(s){document.getElementById("pmImg").src=s;document.getElementById("pm").classList.add("show");}<\/script>';
   html+='<h1>NG缺陷报告</h1>';
   html+='<div class="info">导出时间：'+new Date().toLocaleString('zh-CN')+' ｜ NG总数：'+ngCount+'</div>';
   html+='<table><thead><tr><th>车架号</th><th>日期</th><th>检验员</th><th>岗位</th><th>NG检验项</th><th>检验大类</th><th>缺陷类型</th><th>处理状态</th><th>照片</th></tr></thead><tbody>';
