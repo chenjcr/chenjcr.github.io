@@ -440,7 +440,10 @@ function gItem(id){return allItems.find(i=>i.id===id);}
 const SSTORAGE_KEY='inspection_kanban_data';
 const SHEET_URL='https://doc.weixin.qq.com/smartsheet/s3_AM8AdHgnAPUCNaAbD5WPEQX6jPi4x_a?scode=AHwAVAcbAAg3qjbW4qAM8AdHgnAPU';
 const SHEET_DOCID='dcrwzGRr5PkLKW9bKyBgqOPmvj3UOvOPnzpclPbJZ1O3r262q-cLZRNX5ipL9kJSOhNhi606R1PcEh8EO6mVwvNg';
-const API=''; // same origin = shared API server
+// API URL: read from query param ?api=xxx, or use current origin
+var API='';
+try{var q=new URLSearchParams(window.location.search);if(q.get('api'))API=q.get('api');}catch(e){}
+console.log('API:',API||'(same origin)');
 let stations=[
   {id:'st-1',name:'岗位A：前轮+方向把',skills:['紧固','布管布线'],cs:'s1',items:['i1-1','i1-2','i1-7','i1-8','i1-12','i1-16','i1-18','i2-1','i2-3','i2-7','i2-8','i2-9']},
   {id:'st-2',name:'岗位B：外观检验',skills:['目视外观','间隙测量'],cs:'s2',items:['i3-1','i3-2','i3-3','i4-1','i4-2','i4-3','i5-1','i6-7']},
