@@ -128,6 +128,7 @@ body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--text)
     </div>
   </div>
   <div class="vinbar">
+    <input type="text" id="inspectorInput" placeholder="检验员姓名" style="width:100px;flex:none" onchange="onInsChange()">
     <input type="text" id="vinInput" placeholder="输入车架号..." onchange="onVinChange()">
     <button class="vinsubmit" onclick="confirmVin()">确认</button>
   </div>
@@ -162,6 +163,23 @@ const SKILLS=['紧固','布管布线','目视外观','间隙测量','PDA检测',
 const DEFECTS=['力矩不足','漏装/未装','卡扣不到位','线束干涉/磨损','外观划伤/缺陷','尺寸超差','功能异常','异物/脏污','松动/异响','标识不清','其他'];
 const SCOLS={紧固:{bg:'rgba(224,123,64,.15)',fg:'#e07b40'},布管布线:{bg:'rgba(74,144,217,.15)',fg:'#4a90d9'},目视外观:{bg:'rgba(76,175,125,.15)',fg:'#4caf7d'},间隙测量:{bg:'rgba(139,111,192,.15)',fg:'#8b6fc0'},PDA检测:{bg:'rgba(61,184,176,.15)',fg:'#3db8b0'},绝缘测试:{bg:'rgba(217,72,94,.15)',fg:'#d9485e'}};
 
+// Judgment criteria for each subgroup
+var CRITERIA={
+  '关键力矩紧固':'1.扭矩标准参照SOP化白线\n2.应露牙≥2牙\n3.螺母紧固后应与部件贴合，螺栓无打歪打花',
+  '一般力矩紧固':'1.螺栓与部件贴合，无打歪打花\n2.露牙≥2牙\n3.与其他部件无干涉\n4.合格后打白色标记',
+  '鼓刹调节':'参照SOP调节鼓刹间隙',
+  '走线路径检查':'参照布管布线图检查走向',
+  '主线束分支点检':'参照SOP检查连接点',
+  '端子插接检查':'1.目视无退针\n2.轻拉回插到位\n3.打绿色划线标识',
+  '卡扣接合检查':'1.卡扣表面为横截面\n2.锁舌完全伸出\n3.手拉无松脱',
+  '螺柱开裂检查':'目视检查螺柱无发白、开裂',
+  '部件变形检查':'目视检查紧固点无变形、开裂',
+  '外观间隙测量':'塞尺测量，间隙≥8mm',
+  '运动间隙检查':'塞尺测量，运动件≥12mm',
+  'PDA功能检查':'按PDA检测项逐一确认通过',
+  '绝缘测试':'整车绝缘测试合格'
+};
+
 const IDATA=[
   {id:'cat-1',name:'紧固规范',icon:'🔧',subs:[
     {name:'关键力矩紧固',items:[{id:'i1-1',n:'前轮轴螺母紧固',loc:'前轮区域',t:['紧固']},{id:'i1-2',n:'前制动钳紧固',loc:'前轮区域',t:['紧固']},{id:'i1-3',n:'电机轴锁紧固',loc:'后轮区域',t:['紧固']},{id:'i1-4',n:'后制动钳紧固',loc:'后轮区域',t:['紧固']},{id:'i1-5',n:'后减震紧固',loc:'后轮区域',t:['紧固']},{id:'i1-6',n:'后平叉轴紧固',loc:'后轮区域',t:['紧固']},{id:'i1-7',n:'方向把紧固',loc:'方向把区域',t:['紧固']},{id:'i1-8',n:'前碟刹盘紧固',loc:'前轮区域',t:['紧固']},{id:'i1-9',n:'后碟刹盘紧固',loc:'后轮区域',t:['紧固']},{id:'i1-10',n:'控制器紧固',loc:'中控区域',t:['紧固']},{id:'i1-11',n:'铅酸计量版紧固',loc:'中控区域',t:['紧固']},{id:'i1-12',n:'前叉立管锁紧',loc:'方向把区域',t:['紧固']}]},
@@ -194,6 +212,7 @@ let stations=[]; // loaded from PC kanban config or localStorage
 let curVehicle='commuter';
 let curStationId=null;
 let curVin='';
+let curInspector='';
 let curResults={}; // {itemId: {r:'ok'|'ng'|null, dt:'', ps:[]}}
 let allRecords=[]; // completed inspections
 
@@ -303,10 +322,12 @@ function renderItems(){
   if(!st)return;
   var items=st.items.map(id=>gItem(id)).filter(Boolean);
   var c=document.getElementById('itemsList');
-  c.innerHTML=items.map(it=>{
+  c.innerHTML=items.map(function(it){
     var r=curResults[it.id]||{r:null,dt:'',ps:[]};
     var isOK=r.r==='ok',isNG=r.r==='ng',hp=r.ps&&r.ps.length>0;
-    return'<div class="item'+(isNG?' ng':'')+'" id="it-'+it.id+'"><div class="it-info"><div class="it-name">'+it.n+'</div><div class="it-meta">'+it.cn+' · 📍'+it.loc+'</div>'+(isNG?'<div class="ng-detail"><select onchange="uDt(\''+it.id+'\',this.value)"><option value="">缺陷类型</option>'+DEFECTS.map(d=>'<option value="'+d+'"'+(r.dt===d?' selected':'')+'>'+d+'</option>').join('')+'</select><button class="btn-photo'+(hp?' has':'')+'" onclick="takePhoto(\''+it.id+'\')">📷'+(hp?' ('+r.ps.length+')':'拍照')+'</button><div class="photo-preview">'+(r.ps||[]).map((p,i)=>'<img src="'+p+'" onclick="viewPhoto(\''+p+'\')">').join('')+'</div></div>':'')+'</div><div class="it-actions"><button class="btn-ok'+(isOK?' on':'')+'" onclick="markOK(\''+it.id+'\')">OK</button><button class="btn-ng'+(isNG?' on':'')+'" onclick="markNG(\''+it.id+'\')">NG</button></div></div>';
+    var criteria=CRITERIA[it.sn]||'';
+    var criteriaHtml=criteria?'<div style="font-size:10px;color:var(--muted);margin-top:2px;line-height:1.4;padding:4px 6px;background:rgba(255,255,255,.03);border-radius:4px;white-space:pre-line">'+criteria+'</div>':'';
+    return'<div class="item'+(isNG?' ng':'')+'" id="it-'+it.id+'"><div class="it-info"><div class="it-name">'+it.n+'</div><div class="it-meta">'+it.cn+' · 📍'+it.loc+'</div>'+criteriaHtml+(isNG?'<div class="ng-detail"><select onchange="uDt(\''+it.id+'\',this.value)"><option value="">缺陷类型</option>'+DEFECTS.map(function(d){return'<option value="'+d+'"'+(r.dt===d?' selected':'')+'>'+d+'</option>';}).join('')+'</select><button class="btn-photo'+(hp?' has':'')+'" onclick="takePhoto(\''+it.id+'\')">📷'+(hp?' ('+r.ps.length+')':'拍照')+'</button><div class="photo-preview">'+(r.ps||[]).map(function(p,i){return'<img src="'+p+'" onclick="viewPhoto(\''+p+'\')">';}).join('')+'</div></div>':'')+'</div><div class="it-actions"><button class="btn-ok'+(isOK?' on':'')+'" onclick="markOK(\''+it.id+'\')">OK</button><button class="btn-ng'+(isNG?' on':'')+'" onclick="markNG(\''+it.id+'\')">NG</button></div></div>';
   }).join('');
   updateCounts();
 }
@@ -373,7 +394,8 @@ function viewPhoto(src){document.getElementById('pv').classList.remove('off');do
 
 // ═══════════════ SUBMIT ═══════════════
 function onVinChange(){curVin=document.getElementById('vinInput').value.trim();}
-function confirmVin(){curVin=document.getElementById('vinInput').value.trim();showToast('车架号：'+curVin);}
+function onInsChange(){curInspector=document.getElementById('inspectorInput').value.trim();}
+function confirmVin(){curVin=document.getElementById('vinInput').value.trim();curInspector=document.getElementById('inspectorInput').value.trim();showToast('车架号：'+curVin);}
 
 function submitInspection(){
   if(!curVin){showToast('⚠️ 请输入车架号');return;}
@@ -381,7 +403,7 @@ function submitInspection(){
   var unchecked=st?st.items.filter(iid=>!curResults[iid]||!curResults[iid].r).length:0;
   if(unchecked>0){showToast('⚠️ 还有'+unchecked+'项未判定');return;}
 
-  var rec={vin:curVin,stationId:curStationId,stationName:st?st.name:'',vehicle:curVehicle,results:JSON.parse(JSON.stringify(curResults)),ts:new Date().toISOString()};
+  var rec={vin:curVin,inspector:curInspector,stationId:curStationId,stationName:st?st.name:'',vehicle:curVehicle,results:JSON.parse(JSON.stringify(curResults)),ts:new Date().toISOString()};
   allRecords.push(rec);
   saveRecords();
 
