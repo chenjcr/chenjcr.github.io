@@ -736,14 +736,17 @@ function renderAnalysis(){
   var vinGroups={};
   recs.forEach(function(rec){
     if(!rec.sr)return;
-    var key=rec.vin+'|'+(rec.date||rec.ts||'');
-    if(!vinGroups[key])vinGroups[key]={vin:rec.vin,date:rec.date||'',ts:rec.ts||'',insp:rec.insp||'',ngItems:[],okCount:0,ngCount:0,stations:{}};
+    var key=rec.vin;
+    if(!vinGroups[key])vinGroups[key]={vin:rec.vin,date:rec.date||'',ts:rec.ts||'',insp:rec.insp||'',ngItems:[],okCount:0,ngCount:0,allStations:[]};
+    if(!vinGroups[key].allStations.includes(rec.stationName||''))vinGroups[key].allStations.push(rec.stationName||'');
     Object.keys(rec.sr).forEach(function(sid){
       var st=stations.find(function(s){return s.id===sid;});
+      var stName=st?.name||sid;
+      if(!vinGroups[key].allStations.includes(stName))vinGroups[key].allStations.push(stName);
       Object.keys(rec.sr[sid]).forEach(function(iid){
         var r=rec.sr[sid][iid];var it=gItem(iid);
         if(r?.r==='ng'){
-          var ngItem={vin:rec.vin,sn:st?.name||sid,iname:it?.n||iid,cn:it?.cn||'',dt:r.dt||'未分类',ds:r.ds||'待确认',ps:r.ps||[],iid:iid,sid:sid};
+          var ngItem={vin:rec.vin,sn:stName,iname:it?.n||iid,cn:it?.cn||'',dt:r.dt||'未分类',ds:r.ds||'待确认',ps:r.ps||[],iid:iid,sid:sid};
           ngs.push(ngItem);
           vinGroups[key].ngItems.push(ngItem);
           vinGroups[key].ngCount++;
@@ -765,17 +768,20 @@ function renderAnalysis(){
   h+='<div class="sc"><div class="v" style="color:var(--accent-yellow)">'+(ngs.length/Math.max(Object.keys(vinGroups).length,1)).toFixed(1)+'</div><div class="l">均台NG</div></div>';
   h+='<div class="sc"><div class="v" style="color:var(--accent-green)">'+res+'</div><div class="l">已解决</div></div></div></div>';
 
-  // Record list grouped by VIN
+  // Record list grouped by VIN (scrollable)
   var searchVal=(document.getElementById('vinSearch')?.value||'').toLowerCase().trim();
-  h+='<div class="ac wide"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px"><h4 style="margin:0">📋 检验记录（按车架号）</h4><div style="display:flex;gap:6px"><input type="text" id="vinSearch" placeholder="搜索车架号..." oninput="renderAnalysis()" style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:4px 8px;color:var(--text-primary);font-size:11px;outline:none;width:140px"><button class="btn btn-sec" onclick="exportRecords()" style="font-size:10px">📥 导出报告</button></div></div>';
+  h+='<div class="ac wide"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px"><h4 style="margin:0">📋 检验记录（按车架号）</h4><div style="display:flex;gap:6px"><input type="text" id="vinSearch" placeholder="搜索车架号..." oninput="renderAnalysis()" style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:4px 8px;color:var(--text-primary);font-size:11px;outline:none;width:140px"><button class="btn btn-sec" onclick="exportRecords()" style="font-size:10px">📥 导出NG报告</button></div></div>';
+  h+='<div style="max-height:400px;overflow-y:auto;padding-right:4px;scrollbar-width:thin;scrollbar-color:var(--border) transparent">';
   var groups=Object.values(vinGroups).sort(function(a,b){return(b.ts||'').localeCompare(a.ts||'');});
   if(searchVal){groups=groups.filter(function(g){return g.vin.toLowerCase().includes(searchVal);});}
   groups.forEach(function(g,i){
+    var stList=g.allStations.join('、');
     h+='<div class="rec-card" style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:6px;transition:all .2s">';
-    h+='<div style="display:flex;align-items:center;justify-content:space-between">';
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px">';
     h+='<div><span style="font-weight:700;font-size:14px">🚲 '+g.vin+'</span> <span style="color:var(--text-muted);font-size:11px;margin-left:8px">'+g.date+'</span>'+(g.insp?'<span style="color:var(--accent-blue);font-size:11px;margin-left:8px">👤 '+g.insp+'</span>':'')+'</div>';
-    h+='<div style="display:flex;gap:8px;align-items:center"><span style="color:var(--ok-color);font-size:12px">OK:'+g.okCount+'</span><span style="color:var(--ng-color);font-size:12px">NG:'+g.ngCount+'</span><button onclick="event.stopPropagation();printVehicleReport(\''+g.vin+'\')" style="font-size:9px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-secondary);cursor:pointer">🖨</button><span style="color:var(--text-muted);cursor:pointer" onclick="toggleRec('+i+')">▶</span></div>';
+    h+='<div style="display:flex;gap:8px;align-items:center"><span style="color:var(--ng-color);font-size:12px;font-weight:700">NG:'+g.ngCount+'</span><button onclick="event.stopPropagation();printVehicleReport(\''+g.vin+'\')" style="font-size:9px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-secondary);cursor:pointer">🖨</button><span style="color:var(--text-muted);cursor:pointer" onclick="toggleRec('+i+')">▶</span></div>';
     h+='</div>';
+    h+='<div style="font-size:10px;color:var(--text-muted);margin-top:4px">岗位：'+stList+'</div>';
     h+='<div class="rec-detail" id="rec-'+i+'" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">';
     g.ngItems.forEach(function(ng){
       h+='<div style="margin-bottom:8px;padding:6px;background:rgba(231,76,60,.05);border-radius:6px">';
@@ -794,7 +800,7 @@ function renderAnalysis(){
     h+='</div></div>';
   });
   if(groups.length===0){h+='<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px">未找到匹配的车架号</div>';}
-  h+='</div>';
+  h+='</div></div>';
 
   // Charts
   var bs={};ngs.forEach(function(n){bs[n.sn]=(bs[n.sn]||0)+1;});
@@ -809,59 +815,50 @@ function renderAnalysis(){
 function toggleRec(i){var el=document.getElementById('rec-'+i);if(el)el.style.display=el.style.display==='none'?'block':'none';}
 function vp(src){document.getElementById('photoViewer').classList.remove('off');document.getElementById('pvImg').src=src;}
 function exportRecords(){
-  var rows=[];var ngCount=0;var okCount=0;
+  var rows=[];var ngCount=0;
   allRecs.forEach(function(rec){
     if(!rec.sr)return;
     Object.keys(rec.sr).forEach(function(sid){
       var st=stations.find(function(s){return s.id===sid;});
       Object.keys(rec.sr[sid]).forEach(function(iid){
         var r=rec.sr[sid][iid];var it=gItem(iid);
-        if(r?.r){
+        if(r?.r==='ng'){
           var photos='';
-          if(r.ps&&r.ps.length>0){
-            r.ps.forEach(function(p){photos+='<img src="'+p+'" style="width:120px;height:90px;object-fit:cover;border-radius:4px;margin:2px">';});
-          }
-          rows.push({vin:rec.vin||'',date:rec.date||'',station:st?.name||'',item:it?.n||iid,category:it?.cn||'',result:r.r==='ok'?'OK':'NG',defect:r.dt||'',status:r.ds||'',photos:photos,photoCount:(r.ps||[]).length});
-          if(r.r==='ng')ngCount++;else okCount++;
+          if(r.ps&&r.ps.length>0){r.ps.forEach(function(p){photos+='<img src="'+p+'" style="width:120px;height:90px;object-fit:cover;border-radius:4px;margin:2px">';});}
+          rows.push({vin:rec.vin||'',date:rec.date||'',insp:rec.insp||'',station:st?.name||'',item:it?.n||iid,category:it?.cn||'',defect:r.dt||'',status:r.ds||'',photos:photos});
+          ngCount++;
         }
       });
     });
   });
-  // Build HTML report
-  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>检验报告</title><style>';
+  if(rows.length===0){showToast('⚠️ 暂无NG数据');return;}
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NG缺陷报告</title><style>';
   html+='body{font-family:Microsoft YaHei,sans-serif;margin:20px;background:#fff;color:#333}';
   html+='h1{text-align:center;margin-bottom:5px} .info{text-align:center;color:#888;margin-bottom:20px;font-size:13px}';
   html+='table{width:100%;border-collapse:collapse;font-size:12px}';
-  html+='th{background:#2d2e3a;color:#fff;padding:8px;text-align:center}';
+  html+='th{background:#c0392b;color:#fff;padding:8px;text-align:center}';
   html+='td{border:1px solid #ddd;padding:6px;text-align:center;vertical-align:top}';
-  html+='tr:nth-child(even){background:#f5f5f5}';
-  html+='.ng{color:#e74c3c;font-weight:700}.ok{color:#2ecc71;font-weight:700}';
-  html+='.defect{background:#fff3cd;padding:2px 6px;border-radius:3px;font-size:11px}';
+  html+='tr:nth-child(even){background:#f9f9f9} .defect{background:#fff3cd;padding:2px 6px;border-radius:3px;font-size:11px}';
   html+='@media print{body{margin:0}table{font-size:10px}}';
   html+='</style></head><body>';
-  html+='<h1>试产检验报告</h1>';
-  html+='<div class="info">导出时间：'+new Date().toLocaleString('zh-CN')+' ｜ 总记录：'+rows.length+'条 ｜ OK：'+okCount+' ｜ NG：'+ngCount+'</div>';
-  html+='<table><thead><tr><th>车架号</th><th>日期</th><th>岗位</th><th>检验项</th><th>检验大类</th><th>结果</th><th>缺陷类型</th><th>处理状态</th><th>NG照片</th></tr></thead><tbody>';
+  html+='<h1>NG缺陷报告</h1>';
+  html+='<div class="info">导出时间：'+new Date().toLocaleString('zh-CN')+' ｜ NG总数：'+ngCount+'</div>';
+  html+='<table><thead><tr><th>车架号</th><th>日期</th><th>检验员</th><th>岗位</th><th>NG检验项</th><th>检验大类</th><th>缺陷类型</th><th>处理状态</th><th>照片</th></tr></thead><tbody>';
   rows.forEach(function(r){
     html+='<tr>';
-    html+='<td>'+r.vin+'</td>';
-    html+='<td>'+r.date+'</td>';
-    html+='<td>'+r.station+'</td>';
-    html+='<td>'+r.item+'</td>';
-    html+='<td>'+r.category+'</td>';
-    html+='<td class="'+(r.result==='NG'?'ng':'ok')+'">'+r.result+'</td>';
-    html+='<td><span class="defect">'+(r.defect||'—')+'</span></td>';
-    html+='<td>'+(r.status||'—')+'</td>';
+    html+='<td>'+r.vin+'</td><td>'+r.date+'</td><td>'+r.insp+'</td><td>'+r.station+'</td>';
+    html+='<td>'+r.item+'</td><td>'+r.category+'</td>';
+    html+='<td><span class="defect">'+r.defect+'</span></td><td>'+r.status+'</td>';
     html+='<td style="max-width:280px">'+(r.photos||'—')+'</td>';
     html+='</tr>';
   });
   html+='</tbody></table></body></html>';
   var blob=new Blob([html],{type:'text/html;charset=utf-8'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='检验报告_'+new Date().toISOString().slice(0,10)+'.html';a.click();
-  showToast('📥 报告已导出（含照片）');
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='NG缺陷报告_'+new Date().toISOString().slice(0,10)+'.html';a.click();
+  showToast('📥 NG报告已导出（含照片）');
 }
 function printVehicleReport(vin){
-  var items=[];var ngCount=0;var okCount=0;var dateStr='';var inspStr='';
+  var ngItems=[];var ngCount=0;var okCount=0;var dateStr='';var inspStr='';var stList=[];
   allRecs.forEach(function(rec){
     if(rec.vin!==vin)return;
     dateStr=rec.date||'';
@@ -869,30 +866,32 @@ function printVehicleReport(vin){
     if(!rec.sr)return;
     Object.keys(rec.sr).forEach(function(sid){
       var st=stations.find(function(s){return s.id===sid;});
+      var stName=st?.name||sid;
+      if(!stList.includes(stName))stList.push(stName);
       Object.keys(rec.sr[sid]).forEach(function(iid){
         var r=rec.sr[sid][iid];var it=gItem(iid);
-        if(r?.r){
+        if(r?.r==='ng'){
           var photos='';
           if(r.ps&&r.ps.length>0){r.ps.forEach(function(p){photos+='<img src="'+p+'" style="width:100px;height:75px;object-fit:cover;border-radius:4px;margin:2px">';});}
-          items.push({item:it?.n||iid,station:st?.name||'',category:it?.cn||'',result:r.r,defect:r.dt||'',status:r.ds||'',photos:photos});
-          if(r.r==='ng')ngCount++;else okCount++;
-        }
+          ngItems.push({item:it?.n||iid,station:stName,category:it?.cn||'',defect:r.dt||'',status:r.ds||'',photos:photos});
+          ngCount++;
+        }else if(r?.r==='ok'){okCount++;}
       });
     });
   });
-  if(items.length===0){showToast('⚠️ 未找到该车架号的记录');return;}
-  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>检验报告-'+vin+'</title><style>';
+  if(ngItems.length===0){showToast('⚠️ 该车架号暂无NG记录');return;}
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NG报告-'+vin+'</title><style>';
   html+='body{font-family:Microsoft YaHei,sans-serif;margin:20px;color:#333}h1{text-align:center;margin-bottom:5px}';
-  html+='.info{text-align:center;color:#666;margin-bottom:15px;font-size:13px;border-bottom:2px solid #333;padding-bottom:8px}';
-  html+='table{width:100%;border-collapse:collapse;font-size:11px}th{background:#333;color:#fff;padding:6px;text-align:center}td{border:1px solid #ccc;padding:4px;text-align:center;vertical-align:top}tr:nth-child(even){background:#f5f5f5}';
-  html+='.ng{color:#e74c3c;font-weight:700}.ok{color:#2ecc71;font-weight:700}.summary{display:flex;justify-content:center;gap:30px;margin:10px 0;font-size:14px}';
+  html+='.info{text-align:center;color:#666;margin-bottom:15px;font-size:13px;border-bottom:2px solid #c0392b;padding-bottom:8px}';
+  html+='table{width:100%;border-collapse:collapse;font-size:11px}th{background:#c0392b;color:#fff;padding:6px;text-align:center}td{border:1px solid #ccc;padding:4px;text-align:center;vertical-align:top}tr:nth-child(even){background:#f5f5f5}';
+  html+='.summary{display:flex;justify-content:center;gap:30px;margin:10px 0;font-size:14px}.defect{background:#fff3cd;padding:1px 4px;border-radius:3px}';
   html+='@media print{body{margin:5px}table{font-size:9px}img{width:60px!important;height:45px!important}}</style></head><body>';
-  html+='<h1>试产检验报告</h1>';
-  html+='<div class="info">车架号：<b>'+vin+'</b> ｜ 日期：'+dateStr+' ｜ 检验员：'+inspStr+' ｜ 导出：'+new Date().toLocaleString('zh-CN')+'</div>';
-  html+='<div class="summary"><span>总项数：<b>'+items.length+'</b></span><span class="ok">OK：'+okCount+'</span><span class="ng">NG：'+ngCount+'</span></div>';
-  html+='<table><thead><tr><th>检验项</th><th>岗位</th><th>检验大类</th><th>结果</th><th>缺陷类型</th><th>处理状态</th><th>照片</th></tr></thead><tbody>';
-  items.forEach(function(it){
-    html+='<tr><td>'+it.item+'</td><td>'+it.station+'</td><td>'+it.category+'</td><td class="'+(it.result==='NG'?'ng':'ok')+'">'+it.result+'</td><td>'+(it.defect||'—')+'</td><td>'+(it.status||'—')+'</td><td>'+(it.photos||'—')+'</td></tr>';
+  html+='<h1>NG缺陷报告</h1>';
+  html+='<div class="info">车架号：<b>'+vin+'</b> ｜ 日期：'+dateStr+' ｜ 检验员：'+inspStr+' ｜ 岗位：'+stList.join('、')+'</div>';
+  html+='<div class="summary"><span>总项数：<b>'+(ngCount+okCount)+'</b></span><span style="color:#2ecc71">OK：'+okCount+'</span><span style="color:#e74c3c;font-weight:700">NG：'+ngCount+'</span></div>';
+  html+='<table><thead><tr><th>NG检验项</th><th>岗位</th><th>检验大类</th><th>缺陷类型</th><th>处理状态</th><th>照片</th></tr></thead><tbody>';
+  ngItems.forEach(function(it){
+    html+='<tr><td>'+it.item+'</td><td>'+it.station+'</td><td>'+it.category+'</td><td><span class="defect">'+it.defect+'</span></td><td>'+it.status+'</td><td>'+(it.photos||'—')+'</td></tr>';
   });
   html+='</tbody></table></body></html>';
   var w=window.open('','_blank');
