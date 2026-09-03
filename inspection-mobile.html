@@ -188,11 +188,8 @@ function gItem(id){return allItems.find(i=>i.id===id);}
 
 // ═══════════════ STATE ═══════════════
 const STORAGE_KEY='mobile_inspection_';
-// GitHub config for cloud sync (split to avoid detection)
-const GH_TOKEN='ghp_'+'RXd'+'cdn19T2'+'euRD'+'yrfuExh'+'PE9X'+'NTCGO4'+'DxKJe';
-const GH_REPO='chenjcr/chenjcr.github.io';
-const GH_FILE='data.json';
-const GH_RAW='https://raw.githubusercontent.com/chenjcr/chenjcr.github.io/main/data.json';
+// Sync config: use same-origin API (local server)
+const API_BASE=''; // same origin = whoever serves this page
 let stations=[]; // loaded from PC kanban config or localStorage
 let curVehicle='commuter';
 let curStationId=null;
@@ -236,10 +233,40 @@ function goStep(n){
 }
 
 function renderVehicles(){
-  document.getElementById('vehicleList').innerHTML=[
-    {id:'commuter',name:'通勤款',desc:'小龟王系列',icon:'🛵'},
-    {id:'sport',name:'运动款',desc:'N系列',icon:'🏍'}
-  ].map(v=>'<div class="vcard" onclick="selectVehicle(\''+v.id+'\',\''+v.name+'\')"><div class="vicon">'+v.icon+'</div><div class="vinfo"><div class="vname">'+v.name+'</div><div class="vdesc">'+v.desc+'</div></div></div>').join('');
+  var list=document.getElementById('vehicleList');
+  list.innerHTML='<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">⏳ 正在加载车型...</div>';
+  // Fetch ALL vehicle configs from server (synced from PC)
+  fetch(API_BASE+'/api/configs').then(function(r){return r.json();}).then(function(configs){
+    var names=Object.keys(configs||{});
+    if(names.length===0){
+      list.innerHTML='<div style="text-align:center;padding:30px 20px;color:var(--muted);font-size:13px;line-height:1.6">📋 暂无车型配置<br><br>请先在 PC 端「岗位配置」中<br>保存车型岗位配置</div>';
+      return;
+    }
+    list.innerHTML=names.map(function(name){
+      var cfg=configs[name];
+      var stCount=cfg.stations?cfg.stations.length:0;
+      var totalItems=0;
+      if(cfg.stations){cfg.stations.forEach(function(s){totalItems+=(s.items||[]).length;});}
+      return '<div class="vcard" onclick="selectSavedVehicle(\''+name+'\')"><div class="vicon">📋</div><div class="vinfo"><div class="vname">'+name+'</div><div class="vdesc">'+stCount+'个岗位 · '+totalItems+'项检验</div></div></div>';
+    }).join('');
+  }).catch(function(e){
+    list.innerHTML='<div style="text-align:center;padding:30px 20px;color:var(--muted);font-size:13px;line-height:1.6">⚠️ 无法连接服务器<br><br>请确认：<br>1. PC 端服务器已启动<br>2. 手机和电脑在同一 WiFi<br>3. 网址正确</div>';
+  });
+}
+
+function selectSavedVehicle(name){
+  curVehicle=name;
+  // Load station config from server
+  fetch(API_BASE+'/api/configs').then(r=>r.json()).then(configs=>{
+    if(configs[name]){
+      stations=configs[name].stations||[];
+      stCnt=configs[name].stCnt||stations.length;
+      document.getElementById('step2Vehicle').textContent='车型：'+name;
+      goStep(2);
+    }else{
+      showToast('⚠️ 未找到配置');
+    }
+  }).catch(e=>{showToast('⚠️ 无法加载配置');});
 }
 
 function selectVehicle(id,name){
@@ -358,49 +385,25 @@ function submitInspection(){
   allRecords.push(rec);
   saveRecords();
 
-  // Sync to GitHub
-  syncToGitHub();
+  // Sync to local server API (same origin)
+  fetch(API_BASE+'/api/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(rec)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var el=document.getElementById('syncMsg');
+      if(el)el.innerHTML='✅ 已同步到服务器（共'+(d.total||allRecords.length)+'条）';
+      showToast('☁️ 已同步');
+    })
+    .catch(function(e){
+      var el=document.getElementById('syncMsg');
+      if(el)el.innerHTML='⚠️ 同步失败，数据已存本地';
+      console.error('Sync error:',e);
+    });
 
   var ok=0,ng=0;
   Object.values(curResults).forEach(r=>{if(r.r==='ok')ok++;else if(r.r==='ng')ng++;});
 
-  document.getElementById('doneInfo').innerHTML='车架号：<b>'+curVin+'</b><br>岗位：<b>'+(st?st.name:'')+'</b><br>OK：<b style="color:#2ecc71">'+ok+'</b> 项<br>NG：<b style="color:#e74c3c">'+ng+'</b> 项<br>已保存至本地，共 <b>'+allRecords.length+'</b> 台记录<br><br><span style="color:#3db8b0" id="syncMsg">⏳ 正在同步到云端...</span>';
+  document.getElementById('doneInfo').innerHTML='车架号：<b>'+curVin+'</b><br>岗位：<b>'+(st?st.name:'')+'</b><br>OK：<b style="color:#2ecc71">'+ok+'</b> 项<br>NG：<b style="color:#e74c3c">'+ng+'</b> 项<br>已保存至本地，共 <b>'+allRecords.length+'</b> 台记录<br><br><span style="color:#3db8b0" id="syncMsg">⏳ 正在同步到服务器...</span>';
   goStep(4);
-}
-
-// ═══════════ GITHUB SYNC ═══════════
-function syncToGitHub(){
-  var data={records:allRecords,stations:stations,updateTime:new Date().toISOString()};
-  var content=btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-
-  // First, get current file SHA (if exists)
-  fetch('https://api.github.com/repos/'+GH_REPO+'/contents/'+GH_FILE,{
-    headers:{'Authorization':'Bearer '+GH_TOKEN,'Accept':'application/vnd.github.v3+json'}
-  }).then(function(r){
-    if(r.ok)return r.json();else throw new Error('not found');
-  }).then(function(file){
-    // File exists, update with SHA
-    return fetch('https://api.github.com/repos/'+GH_REPO+'/contents/'+GH_FILE,{
-      method:'PUT',
-      headers:{'Authorization':'Bearer '+GH_TOKEN,'Content-Type':'application/json'},
-      body:JSON.stringify({message:'Update inspection data',content:content,sha:file.sha})
-    });
-  }).catch(function(e){
-    // File doesn't exist, create new
-    return fetch('https://api.github.com/repos/'+GH_REPO+'/contents/'+GH_FILE,{
-      method:'PUT',
-      headers:{'Authorization':'Bearer '+GH_TOKEN,'Content-Type':'application/json'},
-      body:JSON.stringify({message:'Create inspection data',content:content})
-    });
-  }).then(function(r){return r.json();}).then(function(d){
-    var el=document.getElementById('syncMsg');
-    if(el)el.innerHTML='✅ 已同步到云端（共'+allRecords.length+'条）';
-    showToast('☁️ 已同步到云端');
-  }).catch(function(e){
-    var el=document.getElementById('syncMsg');
-    if(el)el.innerHTML='⚠️ 云端同步失败，数据已存本地';
-    console.error('GitHub sync error:',e);
-  });
 }
 
 function exportAll(){
