@@ -771,7 +771,7 @@ function renderAnalysis(){
   // Record list grouped by VIN (scrollable)
   var searchVal=(document.getElementById('vinSearch')?.value||'').toLowerCase().trim();
   h+='<div class="ac wide"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px"><h4 style="margin:0">📋 检验记录（按车架号）</h4><div style="display:flex;gap:6px"><input type="text" id="vinSearch" placeholder="搜索车架号..." oninput="renderAnalysis()" style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:4px 8px;color:var(--text-primary);font-size:11px;outline:none;width:140px"><button class="btn btn-sec" onclick="exportRecords()" style="font-size:10px">📥 导出NG报告</button></div></div>';
-  h+='<div style="max-height:400px;overflow-y:auto;padding-right:4px;scrollbar-width:thin;scrollbar-color:var(--border) transparent">';
+  h+='<div style="height:350px;overflow-y:scroll;overflow-x:hidden;padding-right:6px;border:1px solid var(--border);border-radius:6px"><div style="padding:6px">';
   var groups=Object.values(vinGroups).sort(function(a,b){return(b.ts||'').localeCompare(a.ts||'');});
   if(searchVal){groups=groups.filter(function(g){return g.vin.toLowerCase().includes(searchVal);});}
   groups.forEach(function(g,i){
@@ -800,7 +800,7 @@ function renderAnalysis(){
     h+='</div></div>';
   });
   if(groups.length===0){h+='<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px">未找到匹配的车架号</div>';}
-  h+='</div></div>';
+  h+='</div></div></div>';
 
   // Charts
   var bs={};ngs.forEach(function(n){bs[n.sn]=(bs[n.sn]||0)+1;});
@@ -824,7 +824,7 @@ function exportRecords(){
         var r=rec.sr[sid][iid];var it=gItem(iid);
         if(r?.r==='ng'){
           var photos='';
-          if(r.ps&&r.ps.length>0){r.ps.forEach(function(p){photos+='<img src="'+p+'" style="width:120px;height:90px;object-fit:cover;border-radius:4px;margin:2px">';});}
+          if(r.ps&&r.ps.length>0){r.ps.forEach(function(p){photos+='<img src="'+p+'" onclick="vp(this.src)" style="width:120px;height:90px;object-fit:cover;border-radius:4px;margin:2px;cursor:pointer">';});}
           rows.push({vin:rec.vin||'',date:rec.date||'',insp:rec.insp||'',station:st?.name||'',item:it?.n||iid,category:it?.cn||'',defect:r.dt||'',status:r.ds||'',photos:photos});
           ngCount++;
         }
@@ -840,7 +840,12 @@ function exportRecords(){
   html+='td{border:1px solid #ddd;padding:6px;text-align:center;vertical-align:top}';
   html+='tr:nth-child(even){background:#f9f9f9} .defect{background:#fff3cd;padding:2px 6px;border-radius:3px;font-size:11px}';
   html+='@media print{body{margin:0}table{font-size:10px}}';
+  html+='.photo-modal{position:fixed;inset:0;background:rgba(0,0,0,.95);display:none;align-items:center;justify-content:center;z-index:9999;cursor:pointer}';
+  html+='.photo-modal img{max-width:95vw;max-height:95vh;border-radius:8px}';
+  html+='.photo-modal.show{display:flex}';
   html+='</style></head><body>';
+  html+='<div class="photo-modal" id="pm" onclick="this.classList.remove(\'show\')"><img id="pmImg" src=""></div>';
+  html+='<script>function vp(s){document.getElementById("pmImg").src=s;document.getElementById("pm").classList.add("show");}</script>';
   html+='<h1>NG缺陷报告</h1>';
   html+='<div class="info">导出时间：'+new Date().toLocaleString('zh-CN')+' ｜ NG总数：'+ngCount+'</div>';
   html+='<table><thead><tr><th>车架号</th><th>日期</th><th>检验员</th><th>岗位</th><th>NG检验项</th><th>检验大类</th><th>缺陷类型</th><th>处理状态</th><th>照片</th></tr></thead><tbody>';
