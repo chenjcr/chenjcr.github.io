@@ -36,8 +36,8 @@ body{font-family:'Noto Sans SC',sans-serif;background:var(--bg-deep);color:var(-
 #nav .nf select{flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;color:var(--text-primary);font-size:11px;font-weight:600;font-family:'Noto Sans SC',sans-serif;outline:none;cursor:pointer;}
 
 /* ── MAIN ── */
-#main{flex:1;min-width:0;overflow:hidden;}
-.page{width:100%;height:100%;display:none;flex-direction:column;overflow:hidden;}
+#main{flex:1;min-width:0;overflow:hidden;display:flex;flex-direction:column;}
+.page{width:100%;flex:1;display:none;flex-direction:column;overflow:hidden;min-height:0;}
 .page.on{display:flex;}
 
 /* ═══ PAGE 1: 岗位配置 ═══ */
@@ -304,13 +304,8 @@ body{font-family:'Noto Sans SC',sans-serif;background:var(--bg-deep);color:var(-
     <button class="nav-btn" data-page="page2"><span class="ni-icon">📋</span>检验记录<span class="badge" id="navBadge">0</span></button>
     <button class="nav-btn" data-page="page3"><span class="ni-icon">📊</span>NG分析</button>
   </div>
-  <div class="nf">
-    <span style="font-size:14px;">🏍</span>
-    <select id="vs" onchange="onVeh()"><option value="commuter">通勤款（小龟王）</option><option value="sport">运动款（N系列）</option><option value="new">+ 新建车型</option></select>
-  </div>
   <div style="padding:8px 10px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:4px;">
     <button class="btn btn-pri" onclick="loadFromServer()" style="width:100%;font-size:9px;">📡 从服务器加载</button>
-    <button class="btn btn-sec" onclick="showCloudPanel()" style="width:100%;font-size:9px;">☁️ 云端同步</button>
     <button class="btn btn-sec" onclick="exportAllData()" style="width:100%;font-size:9px;">📥 导出备份</button>
     <button class="btn btn-sec" onclick="importAllData()" style="width:100%;font-size:9px;">📤 导入备份</button>
     <button class="btn btn-gh" onclick="clearStorage()" style="width:100%;font-size:8px;">🗑 清除本地</button>
@@ -339,7 +334,18 @@ body{font-family:'Noto Sans SC',sans-serif;background:var(--bg-deep);color:var(-
     <div class="p1-main">
       <div class="p1m-hdr">
         <span class="title">岗位分配面板</span>
-        <div class="acts"><button class="btn btn-sec" onclick="autoAssign()">⚡ 智能分配</button><button class="btn btn-gh" onclick="resetAll()">↺ 重置</button></div>
+        <div class="acts">
+          <label style="font-size:10px;color:var(--text-muted)">车型：</label>
+          <select id="vehicleConfigSelect" onchange="loadVehicleConfig(this.value)" style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:4px 8px;color:var(--text-primary);font-size:11px;font-family:'Noto Sans SC',sans-serif;outline:none">
+            <option value="">选择已保存车型</option>
+          </select>
+          <input type="text" id="vehicleNameInput" placeholder="输入车型名称" style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:4px 8px;color:var(--text-primary);font-size:11px;width:100px;outline:none">
+          <button class="btn btn-pri" onclick="saveVehicleConfig()">💾 保存</button>
+          <button class="btn btn-gh" onclick="deleteVehicleConfig()" style="font-size:9px">🗑 删除</button>
+          <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
+          <button class="btn btn-sec" onclick="autoAssign()">⚡ 智能分配</button>
+          <button class="btn btn-gh" onclick="resetAll()">↺ 重置</button>
+        </div>
       </div>
       <div class="st-area" id="stationArea"></div>
     </div>
@@ -440,9 +446,9 @@ function gItem(id){return allItems.find(i=>i.id===id);}
 const SSTORAGE_KEY='inspection_kanban_data';
 const SHEET_URL='https://doc.weixin.qq.com/smartsheet/s3_AM8AdHgnAPUCNaAbD5WPEQX6jPi4x_a?scode=AHwAVAcbAAg3qjbW4qAM8AdHgnAPU';
 const SHEET_DOCID='dcrwzGRr5PkLKW9bKyBgqOPmvj3UOvOPnzpclPbJZ1O3r262q-cLZRNX5ipL9kJSOhNhi606R1PcEh8EO6mVwvNg';
-// GitHub raw URL for cloud data
-const GH_RAW='https://raw.githubusercontent.com/chenjcr/chenjcr.github.io/main/data.json';
+// Server API: same origin (local Bun server)
 var API='';
+const GH_RAW=''; // not used, we read from local server
 let stations=[
   {id:'st-1',name:'岗位A：前轮+方向把',skills:['紧固','布管布线'],cs:'s1',items:['i1-1','i1-2','i1-7','i1-8','i1-12','i1-16','i1-18','i2-1','i2-3','i2-7','i2-8','i2-9']},
   {id:'st-2',name:'岗位B：外观检验',skills:['目视外观','间隙测量'],cs:'s2',items:['i3-1','i3-2','i3-3','i4-1','i4-2','i4-3','i5-1','i6-7']},
@@ -517,6 +523,61 @@ function editSt(sid){var st=stations.find(s=>s.id===sid);if(!st)return;window._e
 function delSt(sid){var st=stations.find(s=>s.id===sid);if(!st||!confirm('确定删除「'+st.name+'」？'))return;stations=stations.filter(s=>s.id!==sid);saveToStorage();showToast('🗑️ 已删除');refreshAll();}
 function autoAssign(){var c=0;allItems.forEach(it=>{if(isAssigned(it.id))return;var b=null,bs=0;stations.forEach(st=>{var s=it.t.filter(x=>st.skills.includes(x)).length;if(s>bs){bs=s;b=st;}});if(b&&bs>0){b.items.push(it.id);c++;}});saveToStorage();showToast(c>0?'⚡ 已分配'+c+'项':'ℹ️ 无可分配项');refreshAll();}
 function resetAll(){if(!confirm('确定重置？'))return;stations.forEach(s=>{s.items=[];});saveToStorage();showToast('↺ 已重置');refreshAll();}
+
+// ═══════════ VEHICLE CONFIG ═══════════
+function saveVehicleConfig(){
+  var name=document.getElementById('vehicleNameInput').value.trim();
+  if(!name){showToast('⚠️ 请输入车型名称');return;}
+  // Save to localStorage
+  var configs={};
+  try{configs=JSON.parse(localStorage.getItem('vehicle_configs')||'{}');}catch(e){}
+  configs[name]={stations:JSON.parse(JSON.stringify(stations)),stCnt:stCnt,savedAt:new Date().toISOString()};
+  localStorage.setItem('vehicle_configs',JSON.stringify(configs));
+  // Also save to server so mobile can read it
+  fetch(API+'/api/configs/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,config:configs[name]})})
+    .then(function(r){return r.json();})
+    .then(function(d){console.log('Config synced to server:',d);})
+    .catch(function(e){console.log('Server sync failed (offline?):',e);});
+  updateVehicleDropdown();
+  document.getElementById('vehicleConfigSelect').value=name;
+  showToast('💾 已保存「'+name+'」岗位配置');
+}
+function loadVehicleConfig(name){
+  if(!name)return;
+  var configs={};
+  try{configs=JSON.parse(localStorage.getItem('vehicle_configs')||'{}');}catch(e){}
+  if(configs[name]){
+    stations=JSON.parse(JSON.stringify(configs[name].stations));
+    stCnt=configs[name].stCnt||3;
+    document.getElementById('vehicleNameInput').value=name;
+    saveToStorage();
+    refreshAll();
+    showToast('✅ 已加载「'+name+'」岗位配置');
+  }else{showToast('⚠️ 未找到该车型配置');}
+}
+function updateVehicleDropdown(){
+  var sel=document.getElementById('vehicleConfigSelect');
+  var curVal=sel.value;
+  var configs={};
+  try{configs=JSON.parse(localStorage.getItem('vehicle_configs')||'{}');}catch(e){}
+  var names=Object.keys(configs);
+  sel.innerHTML='<option value="">选择已保存车型</option>'+names.map(function(n){return'<option value="'+n+'">'+n+'</option>';}).join('');
+  if(curVal&&configs[curVal])sel.value=curVal;
+}
+// Delete current vehicle config
+function deleteVehicleConfig(){
+  var sel=document.getElementById('vehicleConfigSelect');
+  var name=sel.value;
+  if(!name){showToast('⚠️ 请先选择要删除的车型');return;}
+  if(!confirm('确定删除「'+name+'」的岗位配置？'))return;
+  var configs={};
+  try{configs=JSON.parse(localStorage.getItem('vehicle_configs')||'{}');}catch(e){}
+  delete configs[name];
+  localStorage.setItem('vehicle_configs',JSON.stringify(configs));
+  updateVehicleDropdown();
+  document.getElementById('vehicleNameInput').value='';
+  showToast('🗑️ 已删除「'+name+'」');
+}
 function tCat(el){el.classList.toggle('open');}
 function tSub(el){el.classList.toggle('open');}
 function refreshAll(){renderSidebar();renderStations();saveToStorage();}
@@ -560,9 +621,7 @@ function importAllData(){
 // ═══════════ SERVER SYNC ═══════════
 function loadFromServer(){
   document.getElementById('syncStatus').textContent='⏳ 加载中...';
-  // Add cache-busting parameter to get fresh data
-  var url=GH_RAW+'?t='+Date.now();
-  fetch(url).then(function(r){return r.json();}).then(function(d){
+  fetch(API+'/api/records').then(function(r){return r.json();}).then(function(d){
     if(d.records&&d.records.length>0){
       var newRecs=d.records.map(function(rec){
         var sr={};sr[rec.stationId]={};
@@ -572,11 +631,10 @@ function loadFromServer(){
         return {vin:rec.vin,insp:'',batch:'',date:rec.ts?rec.ts.slice(0,10):'',sr:sr,ts:rec.ts};
       });
       allRecs=newRecs;
-      if(d.stations&&d.stations.length>0)stations=d.stations;
       saveToStorage();
-      document.getElementById('syncStatus').textContent='🔄 '+allRecs.length+'条 | GitHub';
+      document.getElementById('syncStatus').textContent='🔄 '+allRecs.length+'条 | 服务器';
       renderAnalysis();
-      showToast('📡 从GitHub加载了 '+allRecs.length+' 条');
+      showToast('📡 加载了 '+allRecs.length+' 条');
       if(document.getElementById('page1').classList.contains('on'))refreshAll();
     }else{showToast('ℹ️ 暂无数据');document.getElementById('syncStatus').textContent='💾 本地存储';}
   }).catch(function(e){showToast('⚠️ 加载失败');document.getElementById('syncStatus').textContent='⚠️ 连接失败';});
@@ -643,7 +701,136 @@ function onVin(){curRec.vin=document.getElementById('vinInput').value.trim();}
 function onIns(){curRec.insp=document.getElementById('inspectorInput').value.trim();}
 
 // ═══════════ PAGE 3 ═══════════
-function renderAnalysis(){var fv=document.getElementById('analysisFilter')?.value||'all',recs=allRecs;if(fv!=='all')recs=allRecs.filter(r=>r.batch===fv||r.vin===fv);var ngs=[];recs.forEach(rec=>{if(!rec.sr)return;Object.keys(rec.sr).forEach(sid=>{var st=stations.find(s=>s.id===sid);Object.keys(rec.sr[sid]).forEach(iid=>{var r=rec.sr[sid][iid];if(r?.r==='ng'){var it=gItem(iid);ngs.push({vin:rec.vin,batch:rec.batch,date:rec.date,insp:rec.insp,sn:st?.name||sid,iname:it?.n||iid,cn:it?.cn||'未知',dt:r.dt||'未分类',ds:r.ds||'待确认'});}});});});var b=document.getElementById('analysisBody');if(ngs.length===0){b.innerHTML='<div class="ac wide" style="grid-column:1/-1;display:flex;align-items:center;justify-content:center"><div class="nd">📊 暂无NG数据</div></div>';return;}var res=ngs.filter(n=>n.ds==='已返修'||n.ds==='复检OK').length,h='<div class="ac wide"><h4>📈 NG总览</h4><div class="sg">';h+='<div class="sc"><div class="v" style="color:var(--ng-color)">'+ngs.length+'</div><div class="l">NG总数</div></div>';h+='<div class="sc"><div class="v" style="color:var(--accent-blue)">'+recs.length+'</div><div class="l">检验台数</div></div>';h+='<div class="sc"><div class="v" style="color:var(--accent-yellow)">'+(ngs.length/Math.max(recs.length,1)).toFixed(1)+'</div><div class="l">均台NG</div></div>';h+='<div class="sc"><div class="v" style="color:var(--accent-green)">'+res+'</div><div class="l">已解决</div></div></div></div>';var bs={};ngs.forEach(n=>{bs[n.sn]=(bs[n.sn]||0)+1;});h+=barC('按岗位分布',bs,['c1','c2','c3','c4','c5']);var bt={};ngs.forEach(n=>{bt[n.dt]=(bt[n.dt]||0)+1;});h+=barC('按缺陷类型（帕累托）',bt,['c1','c2','c3','c4','c5','c6','c7','c8']);var bc={};ngs.forEach(n=>{bc[n.cn]=(bc[n.cn]||0)+1;});h+=donutC('按检验大类',bc);var bi={};ngs.forEach(n=>{bi[n.insp||'未指定']=(bi[n.insp||'未指定']||0)+1;});h+=barC('按检验员',bi,['c1','c2','c3']);b.innerHTML=h;}
+function renderAnalysis(){
+  var fv=document.getElementById('analysisFilter')?.value||'all',recs=allRecs;
+  if(fv!=='all')recs=allRecs.filter(r=>r.batch===fv||r.vin===fv);
+  // Collect NG items with photos
+  var ngs=[];
+  // Group by VIN + date
+  var vinGroups={};
+  recs.forEach(function(rec){
+    if(!rec.sr)return;
+    var key=rec.vin+'|'+(rec.date||rec.ts||'');
+    if(!vinGroups[key])vinGroups[key]={vin:rec.vin,date:rec.date||'',ts:rec.ts||'',ngItems:[],okCount:0,ngCount:0,stations:{}};
+    Object.keys(rec.sr).forEach(function(sid){
+      var st=stations.find(function(s){return s.id===sid;});
+      Object.keys(rec.sr[sid]).forEach(function(iid){
+        var r=rec.sr[sid][iid];var it=gItem(iid);
+        if(r?.r==='ng'){
+          var ngItem={vin:rec.vin,sn:st?.name||sid,iname:it?.n||iid,cn:it?.cn||'',dt:r.dt||'未分类',ds:r.ds||'待确认',ps:r.ps||[],iid:iid,sid:sid};
+          ngs.push(ngItem);
+          vinGroups[key].ngItems.push(ngItem);
+          vinGroups[key].ngCount++;
+        }else if(r?.r==='ok'){
+          vinGroups[key].okCount++;
+        }
+      });
+    });
+  });
+  var b=document.getElementById('analysisBody');
+  if(ngs.length===0&&Object.keys(vinGroups).length===0){
+    b.innerHTML='<div class="ac wide" style="grid-column:1/-1;display:flex;align-items:center;justify-content:center"><div class="nd">📊 暂无数据，请先点「📡从服务器加载」</div></div>';
+    return;
+  }
+  var res=ngs.filter(function(n){return n.ds==='已返修'||n.ds==='复检OK';}).length;
+  var h='<div class="ac wide"><h4>📈 NG总览</h4><div class="sg">';
+  h+='<div class="sc"><div class="v" style="color:var(--ng-color)">'+ngs.length+'</div><div class="l">NG总数</div></div>';
+  h+='<div class="sc"><div class="v" style="color:var(--accent-blue)">'+Object.keys(vinGroups).length+'</div><div class="l">检验台数</div></div>';
+  h+='<div class="sc"><div class="v" style="color:var(--accent-yellow)">'+(ngs.length/Math.max(Object.keys(vinGroups).length,1)).toFixed(1)+'</div><div class="l">均台NG</div></div>';
+  h+='<div class="sc"><div class="v" style="color:var(--accent-green)">'+res+'</div><div class="l">已解决</div></div></div></div>';
+
+  // Record list grouped by VIN
+  h+='<div class="ac wide"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><h4 style="margin:0">📋 检验记录（按车架号）</h4><button class="btn btn-sec" onclick="exportRecords()" style="font-size:10px">📥 导出CSV</button></div>';
+  var groups=Object.values(vinGroups).sort(function(a,b){return(b.ts||'').localeCompare(a.ts||'');});
+  groups.forEach(function(g,i){
+    h+='<div class="rec-card" onclick="toggleRec('+i+')" style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:6px;cursor:pointer;transition:all .2s">';
+    h+='<div style="display:flex;align-items:center;justify-content:space-between">';
+    h+='<div><span style="font-weight:700;font-size:14px">🚲 '+g.vin+'</span> <span style="color:var(--text-muted);font-size:11px;margin-left:8px">'+g.date+'</span></div>';
+    h+='<div style="display:flex;gap:12px;font-size:12px"><span style="color:var(--ok-color)">OK: '+g.okCount+'</span><span style="color:var(--ng-color)">NG: '+g.ngCount+'</span><span style="color:var(--text-muted)">▶</span></div>';
+    h+='</div>';
+    h+='<div class="rec-detail" id="rec-'+i+'" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">';
+    g.ngItems.forEach(function(ng){
+      h+='<div style="margin-bottom:8px;padding:6px;background:rgba(231,76,60,.05);border-radius:6px">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:flex-start">';
+      h+='<div><div style="font-weight:600;color:var(--ng-color);font-size:12px">⚠ '+ng.iname+'</div>';
+      h+='<div style="font-size:10px;color:var(--text-muted);margin-top:2px">'+ng.sn+' · '+ng.cn+'</div></div>';
+      h+='<div style="display:flex;gap:4px"><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(231,76,60,.15);color:var(--ng-color)">'+ng.dt+'</span><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(229,168,62,.15);color:var(--accent-yellow)">'+ng.ds+'</span></div>';
+      h+='</div>';
+      if(ng.ps&&ng.ps.length>0){
+        h+='<div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">';
+        ng.ps.forEach(function(p){h+='<img src="'+p+'" onclick="vp(\''+p+'\')" style="width:60px;height:60px;border-radius:4px;object-fit:cover;border:1px solid var(--border);cursor:pointer">';});
+        h+='</div>';
+      }
+      h+='</div>';
+    });
+    h+='</div></div>';
+  });
+  h+='</div>';
+
+  // Charts
+  var bs={};ngs.forEach(function(n){bs[n.sn]=(bs[n.sn]||0)+1;});
+  h+=barC('按岗位分布',bs,['c1','c2','c3','c4','c5']);
+  var bt={};ngs.forEach(function(n){bt[n.dt]=(bt[n.dt]||0)+1;});
+  h+=barC('按缺陷类型（帕累托）',bt,['c1','c2','c3','c4','c5','c6','c7','c8']);
+  var bc={};ngs.forEach(function(n){bc[n.cn]=(bc[n.cn]||0)+1;});
+  h+=donutC('按检验大类',bc);
+
+  b.innerHTML=h;
+}
+function toggleRec(i){var el=document.getElementById('rec-'+i);if(el)el.style.display=el.style.display==='none'?'block':'none';}
+function vp(src){document.getElementById('photoViewer').classList.remove('off');document.getElementById('pvImg').src=src;}
+function exportRecords(){
+  var rows=[];var ngCount=0;var okCount=0;
+  allRecs.forEach(function(rec){
+    if(!rec.sr)return;
+    Object.keys(rec.sr).forEach(function(sid){
+      var st=stations.find(function(s){return s.id===sid;});
+      Object.keys(rec.sr[sid]).forEach(function(iid){
+        var r=rec.sr[sid][iid];var it=gItem(iid);
+        if(r?.r){
+          var photos='';
+          if(r.ps&&r.ps.length>0){
+            r.ps.forEach(function(p){photos+='<img src="'+p+'" style="width:120px;height:90px;object-fit:cover;border-radius:4px;margin:2px">';});
+          }
+          rows.push({vin:rec.vin||'',date:rec.date||'',station:st?.name||'',item:it?.n||iid,category:it?.cn||'',result:r.r==='ok'?'OK':'NG',defect:r.dt||'',status:r.ds||'',photos:photos,photoCount:(r.ps||[]).length});
+          if(r.r==='ng')ngCount++;else okCount++;
+        }
+      });
+    });
+  });
+  // Build HTML report
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>检验报告</title><style>';
+  html+='body{font-family:Microsoft YaHei,sans-serif;margin:20px;background:#fff;color:#333}';
+  html+='h1{text-align:center;margin-bottom:5px} .info{text-align:center;color:#888;margin-bottom:20px;font-size:13px}';
+  html+='table{width:100%;border-collapse:collapse;font-size:12px}';
+  html+='th{background:#2d2e3a;color:#fff;padding:8px;text-align:center}';
+  html+='td{border:1px solid #ddd;padding:6px;text-align:center;vertical-align:top}';
+  html+='tr:nth-child(even){background:#f5f5f5}';
+  html+='.ng{color:#e74c3c;font-weight:700}.ok{color:#2ecc71;font-weight:700}';
+  html+='.defect{background:#fff3cd;padding:2px 6px;border-radius:3px;font-size:11px}';
+  html+='@media print{body{margin:0}table{font-size:10px}}';
+  html+='</style></head><body>';
+  html+='<h1>试产检验报告</h1>';
+  html+='<div class="info">导出时间：'+new Date().toLocaleString('zh-CN')+' ｜ 总记录：'+rows.length+'条 ｜ OK：'+okCount+' ｜ NG：'+ngCount+'</div>';
+  html+='<table><thead><tr><th>车架号</th><th>日期</th><th>岗位</th><th>检验项</th><th>检验大类</th><th>结果</th><th>缺陷类型</th><th>处理状态</th><th>NG照片</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    html+='<tr>';
+    html+='<td>'+r.vin+'</td>';
+    html+='<td>'+r.date+'</td>';
+    html+='<td>'+r.station+'</td>';
+    html+='<td>'+r.item+'</td>';
+    html+='<td>'+r.category+'</td>';
+    html+='<td class="'+(r.result==='NG'?'ng':'ok')+'">'+r.result+'</td>';
+    html+='<td><span class="defect">'+(r.defect||'—')+'</span></td>';
+    html+='<td>'+(r.status||'—')+'</td>';
+    html+='<td style="max-width:280px">'+(r.photos||'—')+'</td>';
+    html+='</tr>';
+  });
+  html+='</tbody></table></body></html>';
+  var blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='检验报告_'+new Date().toISOString().slice(0,10)+'.html';a.click();
+  showToast('📥 报告已导出（含照片）');
+}
 function barC(title,data,cs){var e=Object.entries(data).sort((a,b)=>b[1]-a[1]),mx=Math.max(...e.map(x=>x[1]),1),bars=e.map((x,i)=>{var h2=Math.max((x[1]/mx)*140,3);return'<div class="cb"><span class="cv">'+x[1]+'</span><div class="cbar '+cs[i%cs.length]+'" style="height:'+h2+'px"></div><div class="cbl">'+x[0]+'</div></div>';}).join('');return'<div class="ac"><h4>'+title+'</h4><div class="ca">'+bars+'</div></div>';}
 function donutC(title,data){var e=Object.entries(data).sort((a,b)=>b[1]-a[1]),t=e.reduce((s,x)=>s+x[1],0),pal=['#4a90d9','#e07b40','#4caf7d','#8b6fc0','#3db8b0','#e5a83e','#d9485e','#d96b9e'],cx=70,cy=70,r=55,sw=24,cum=0,sl='',lg='';e.forEach((x,i)=>{var p=x[1]/t,sa=(cum/t)*2*Math.PI-Math.PI/2;cum+=x[1];var ea=(cum/t)*2*Math.PI-Math.PI/2,x1=cx+r*Math.cos(sa),y1=cy+r*Math.sin(sa),x2=cx+r*Math.cos(ea),y2=cy+r*Math.sin(ea),la=p>.5?1:0;sl+='<path d="M'+cx+','+cy+' L'+x1+','+y1+' A'+r+','+r+' 0 '+la+',1 '+x2+','+y2+' Z" fill="'+pal[i%pal.length]+'"/>';lg+='<div class="di"><span class="dd" style="background:'+pal[i%pal.length]+'"></span><span>'+x[0]+'</span><span class="dv">'+x[1]+' ('+(p*100).toFixed(0)+'%)</span></div>';});return'<div class="ac"><h4>'+title+'</h4><div class="dc"><svg viewBox="0 0 140 140">'+sl+'<circle cx="70" cy="70" r="43" fill="var(--bg-deep)"/><text x="70" y="66" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="18" font-weight="700" fill="var(--text-primary)">'+t+'</text><text x="70" y="82" text-anchor="middle" font-size="8" fill="var(--text-muted)">NG总数</text></svg><div class="dl">'+lg+'</div></div></div>';}
 function updAF(){var s=document.getElementById('analysisFilter');if(!s)return;s.innerHTML='<option value="all">全部批次</option>';var bs=[...new Set(allRecs.map(r=>r.batch).filter(Boolean))];bs.forEach(b=>{s.innerHTML+='<option value="'+b+'">'+b+'</option>';});}
@@ -659,6 +846,7 @@ if(!loadFromStorage()){
   saveToStorage();
 }
 refreshAll();
+updateVehicleDropdown();
 document.getElementById('syncStatus').textContent='💾 本地存储 ('+allRecs.length+'条记录)';
 // Auto-refresh from server every 15 seconds
 autoRefresh();
